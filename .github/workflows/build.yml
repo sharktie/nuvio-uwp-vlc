@@ -1,0 +1,149 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  web:
+    name: Check web app
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          # 22+ recognises ES module syntax in plain .js files.
+          node-version: 22
+      - name: Syntax check
+        run: |
+          # The web app has no build step; make sure every module at least parses.
+          find web/js tools -name '*.js' -o -name '*.mjs' | while read -r file; do
+            node --check "$file" || exit 1
+          done
+          echo "$(find web/js -name '*.js' | wc -l) web modules OK"
+
+  package:
+    name: Package (${{ matrix.configuration }})
+    needs: web
+    runs-on: windows-2022
+    permissions:
+      contents: write # publish releases for version tags
+    strategy:
+      fail-fast: false
+      matrix:
+        # Release is the one to install. Debug skips .NET Native, which helps tell a
+        # compiler problem from an app problem if a Release build misbehaves.
+        configuration: [Release, Debug]
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: microsoft/setup-msbuild@v3
+
+      - name: Set package version
+        shell: pwsh
+        run: |
+          $manifest = Resolve-Path 'Nuvio\Package.appxmanifest'
+          [xml]$xml = Get-Content $manifest -Raw
+          # Always increasing, so a newer build installs over an older one.
+          $xml.Package.Identity.Version = "1.0.$env:GITHUB_RUN_NUMBER.0"
+          $xml.Save($manifest)
+          "Version: $($xml.Package.Identity.Version)"
+
+      - name: Create signing certificate
+        shell: pwsh
+        run: |
+          # Self-signed, subject must match Publisher in Package.appxmanifest.
+          $cert = New-SelfSignedCertificate -Type Custom -Subject 'CN=NuvioUWP' `
+            -KeyUsage DigitalSignature -FriendlyName 'Nuvio UWP sideload' `
+            -CertStoreLocation 'Cert:\CurrentUser\My' `
+            -TextExtension @('2.5.29.37={text}1.3.6.1.5.5.7.3.3', '2.5.29.19={text}')
+          "CERT_THUMBPRINT=$($cert.Thumbprint)" >> $env:GITHUB_ENV
+
+      - name: Build package
+        shell: pwsh
+        run: >
+          msbuild Nuvio\Nuvio.csproj -restore -m -nologo -v:minimal
+          /p:Configuration=${{ matrix.configuration }}
+          /p:Platform=x64
+          /p:AppxBundle=Never
+          /p:UapAppxPackageBuildMode=SideloadOnly
+          /p:GenerateAppxPackageOnBuild=true
+          /p:AppxAutoIncrementPackageRevision=false
+          /p:AppxPackageDir=$env:GITHUB_WORKSPACE\AppPackages\
+          /p:AppxPackageSigningEnabled=true
+          /p:PackageCertificateThumbprint=$env:CERT_THUMBPRINT
+
+      - name: Verify package
+        shell: pwsh
+        run: |
+          # Fail the build if VLC, its runtime or the web app didn't make it into the package, and
+          # publish a summary as an annotation so it can be read without downloading the artifact.
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $msix = Get-ChildItem AppPackages -Recurse -Include *.msix, *.appx |
+            Where-Object { $_.Directory.Parent.Name -ne 'Dependencies' } | Select-Object -First 1
+          if (-not $msix) { throw 'No package was produced.' }
+          $zip = [IO.Compression.ZipFile]::OpenRead($msix.FullName)
+          try {
+            $entries = $zip.Entries | ForEach-Object { $_.FullName }
+            $reader = New-Object IO.StreamReader(($zip.Entries | Where-Object FullName -eq 'AppxManifest.xml').Open())
+            [xml]$manifest = $reader.ReadToEnd()
+            $reader.Close()
+          } finally { $zip.Dispose() }
+          $dependencies = $manifest.Package.Dependencies.PackageDependency | ForEach-Object { $_.Name }
+          $plugins = @($entries | Where-Object { $_ -like 'plugins/*.dll' }).Count
+          $webFiles = @($entries | Where-Object { $_ -like 'web/*' }).Count
+          $sizeMb = [math]::Round($msix.Length / 1MB, 1)
+          $summary = "$($msix.Name) ($sizeMb MB): $plugins VLC plugins, $webFiles web app files; depends on $($dependencies -join ', ')"
+          "::notice title=Package (${{ matrix.configuration }})::$summary"
+          # Managed DLLs are compiled into Nuvio.dll by .NET Native in Release, so only check native ones.
+          $missing = @('libvlc.dll', 'libvlccore.dll', 'web/index.html', 'web/js/main.js', 'web/css/app.css') | Where-Object { $entries -notcontains $_ }
+          if ($missing) { throw "Missing from package: $($missing -join ', ')" }
+          if ($plugins -lt 50) { throw "Only $plugins VLC plugins were packaged." }
+          if ($dependencies -notcontains 'Microsoft.VCLibs.140.00') { throw 'Package does not depend on Microsoft.VCLibs.140.00 (needed by libvlc).' }
+          Get-ChildItem AppPackages -Recurse -File | ForEach-Object { $_.FullName.Substring($PWD.Path.Length + 1) }
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: Nuvio-VLC-x64-${{ matrix.configuration }}
+          path: AppPackages/
+          if-no-files-found: error
+
+      - name: Collect install files
+        # Only what's needed to install: the app at the top, its 5 x64 dependency packages in Dependencies.
+        if: matrix.configuration == 'Release'
+        shell: pwsh
+        run: |
+          $test = Get-ChildItem AppPackages -Directory -Filter '*_Test' | Select-Object -First 1
+          $app = @(Get-ChildItem $test.FullName -Filter *.msix)
+          $dependencies = @(Get-ChildItem (Join-Path $test.FullName 'Dependencies\x64') -Filter *.appx)
+          if ($app.Count -ne 1 -or $dependencies.Count -ne 5) {
+            throw "Expected the app and 5 dependencies, found: $(($app + $dependencies).Name -join ', ')"
+          }
+          New-Item -ItemType Directory release\Dependencies -Force | Out-Null
+          $app | Copy-Item -Destination release
+          $dependencies | Copy-Item -Destination release\Dependencies
+          Get-ChildItem release -Recurse -File | ForEach-Object { $_.FullName.Substring($PWD.Path.Length + 1) }
+
+      - uses: actions/upload-artifact@v6
+        # The same layout as a release, for every build: download it from the run's Artifacts.
+        if: matrix.configuration == 'Release'
+        with:
+          name: NuvioUWPVLC-x64
+          path: release/
+          if-no-files-found: error
+
+      - name: Publish release
+        # Push a tag such as v1.0.0 to publish the Release build on the repository's Releases page.
+        if: github.ref_type == 'tag' && matrix.configuration == 'Release'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          Compress-Archive -Path release\* -DestinationPath NuvioUWPVLC-x64.zip
+          $notes = "Nuvio for Xbox Developer Mode with VLC built in.`n`n" +
+            "Download **NuvioUWPVLC-x64.zip** and unzip it. It contains the app (.msix) and a Dependencies folder with the 5 dependency packages (.appx). " +
+            "Install steps are in the README: upload the .msix in the Xbox Device Portal, then add the 5 files from Dependencies."
+          gh release create $env:GITHUB_REF_NAME NuvioUWPVLC-x64.zip --title "Nuvio UWP VLC $env:GITHUB_REF_NAME" --notes $notes

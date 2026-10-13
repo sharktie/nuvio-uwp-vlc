@@ -1,0 +1,37 @@
+<Page
+    x:Class="Nuvio.MainPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:controls="using:Microsoft.UI.Xaml.Controls"
+    xmlns:vlc="using:LibVLCSharp.Platforms.Windows"
+    mc:Ignorable="d"
+    Background="Black">
+
+    <Grid Background="Black">
+        <!-- VLC draws the video here. The web app above turns transparent while a stream plays, so
+             Nuvio's player controls and subtitles sit on top of VLC's picture. Created only once
+             the web app has loaded (x:Load), so a VLC problem can't stop the app starting. -->
+        <vlc:VideoView x:Name="VideoView"
+                       x:Load="False"
+                       SizeChanged="VideoView_SizeChanged"
+                       Opacity="0"
+                       IsHitTestVisible="False"
+                       IsTabStop="False" />
+
+        <!-- The controller drives the page through AppBridge (see ControllerBridge). -->
+        <controls:WebView2 x:Name="WebView" />
+
+        <Grid x:Name="LoadErrorPanel" Background="#FF0D0E13" Visibility="Collapsed">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="560" Padding="24" Spacing="16">
+                <TextBlock Text="Couldn't load Nuvio" FontSize="28" Foreground="White" HorizontalAlignment="Center" />
+                <TextBlock x:Name="LoadErrorText" Foreground="#B3FFFFFF" TextWrapping="Wrap" TextAlignment="Center" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="12">
+                    <Button x:Name="RetryButton" Content="Retry" MinWidth="160" Click="RetryButton_Click" />
+                    <Button x:Name="BuiltInButton" Content="Use the built-in app" MinWidth="160" Visibility="Collapsed" Click="BuiltInButton_Click" />
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Page>
