@@ -52,21 +52,28 @@ export function invalidate(prefix) {
 }
 
 /** Any method; body is JSON-encoded. Not cached. */
-export async function requestJson(url, { method = 'GET', body, timeout = 20000, headers = {} } = {}) {
+/**
+ * A JSON request. In the app, a request the browser refuses (usually CORS) is retried natively;
+ * native: true goes natively straight away, for APIs that only allow listed browser origins, where
+ * a request the browser sent but wasn't allowed to read would otherwise be sent twice.
+ */
+export async function requestJson(url, { method = 'GET', body, timeout = 20000, headers = {}, native = false } = {}) {
   const init = { method, headers: { ...headers } };
   if (body !== undefined) {
     init.body = typeof body === 'string' ? body : JSON.stringify(body);
     if (!Object.keys(init.headers).some((k) => k.toLowerCase() === 'content-type')) init.headers['Content-Type'] = 'application/json';
   }
+  const viaApp = async () => {
+    const raw = await bridge.fetchRaw(url, { method, headers: init.headers, body: init.body || null, timeoutMs: timeout });
+    return parse(raw.status, new TextDecoder().decode(raw.bytes), url, retryAfterSeconds(raw.headers['retry-after']));
+  };
+  if (native && bridge.native) return viaApp();
   let response;
   try {
     response = await fetchWithTimeout(url, init, timeout);
   } catch (error) {
-    if (bridge.native && error.name !== 'AbortError') {
-      // Most likely CORS: the native side isn't bound by it.
-      const raw = await bridge.fetchRaw(url, { method, headers: init.headers, body: init.body || null, timeoutMs: timeout });
-      return parse(raw.status, new TextDecoder().decode(raw.bytes), url, retryAfterSeconds(raw.headers['retry-after']));
-    }
+    // Most likely CORS: the native side isn't bound by it.
+    if (bridge.native && error.name !== 'AbortError') return viaApp();
     throw error.name === 'AbortError' ? new HttpError('The request timed out', 0) : error;
   }
   return parse(response.status, await response.text(), url, retryAfterSeconds(response.headers.get('retry-after')));

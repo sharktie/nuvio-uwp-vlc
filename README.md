@@ -11,6 +11,8 @@ Nuvio has no web or Xbox version, so this project is a Nuvio client written as a
 - **Stremio addons**: install any addon by its manifest URL (Cinemeta and OpenSubtitles are installed by default), reorder, enable/disable, configure.
 - **Nuvio account sync**: sign in with a code (approve on your phone) or email, and your addons, library, Continue Watching and watched marks sync with your other Nuvio apps. With several profiles the app asks who's watching when it starts. See [Nuvio account](#nuvio-account).
 - **Built-in debrid**: connect TorBox, Real-Debrid or Premiumize and plain torrent results play too: the service fetches the torrent and the console plays the file it serves.
+- **Jellyfin and Emby**: your server's libraries on Home, its files played directly in original quality, and progress and watched marks kept in step with the server. See [Jellyfin and Emby](#jellyfin-and-emby).
+- **Trakt**: scrobbling, your history and paused progress, and your watchlist and recommendations on Home. See [Trakt](#trakt).
 - **Player**: VLC with Nuvio-style controls, audio track and subtitle menus, addon subtitles drawn by the app (size, colour, background, position, delay), speed, aspect ratio, switching sources, episode list, resume, and next episode with a countdown (same addon and release group).
 - If a stream's connection drops partway through, playback reconnects and carries on.
 - Full controller support, including typing with the on-screen keyboard.
@@ -45,7 +47,23 @@ Which Nuvio server the app signs in to:
 
 Sync is gentle with the server, like Nuvio's own apps: progress goes up at most once a minute while playing (straight away on pause or stop), after the first full download only changes are fetched (every 15 minutes while the app is open), and when the server says "too many requests" the app waits as long as it asks.
 
-**TMDB (optional):** with a TMDB key (Settings → Integrations, or the `TMDB_API_KEY` secret / `tmdbApiKey` in `config.local.js`), details screens get cast photos, a "More like this" row, and logos and backdrops the addons lack.
+## Jellyfin and Emby
+Settings → Integrations → **Add a server**, and enter the address you open your server at (e.g. `192.168.1.20:8096`). Sign in with **Quick Connect** (Jellyfin: approve the code in another Jellyfin app under Settings → Quick Connect) or with your username and password. Several servers can be added.
+
+- Each library is a row on Home (newest first, with View All), and the server is searched along with your addons.
+- Titles with an IMDb id open with the usual details, and the server's copy is listed with your other streams (e.g. "Jellyfin 2160p"), so you can pick it or a debrid link. VLC plays the original file; the server doesn't convert anything. External subtitle files on the server are offered too.
+- Playback is reported to the server (it shows up in its dashboard and keeps your place), resume points from the server appear in Continue Watching, and watched marks go both ways.
+
+## Trakt
+Settings → Integrations → **Connect Trakt**, then scan the QR code or enter the code at trakt.tv/activate.
+
+- **Scrobbling:** Trakt follows what you play and marks it watched when you finish (80% or more).
+- **History:** your Trakt watched history becomes watched marks here, and paused playback appears in Continue Watching. Only what changed since the last sync is fetched.
+- **Home rows:** your watchlist (movies and shows) and Trakt's recommendations.
+- Watched marks you set or clear here are sent to Trakt.
+
+## TMDB
+Optional: with a TMDB key (Settings → Integrations, or the `TMDB_API_KEY` secret / `tmdbApiKey` in `config.local.js`), details screens get cast photos, a "More like this" row, and logos and backdrops the addons lack.
 
 ## Troubleshooting
 The app keeps a log of starting up and playing: read it on the TV in **Settings → About → View log** (this session and the last one). To copy the whole file, download it from the Device Portal: **File explorer → LocalAppData →** the Nuvio package folder (`b7f0f2ee-…`) **→ LocalState → `nuvio-vlc.log`**. Include it when reporting a problem.
@@ -54,11 +72,12 @@ Known limitations:
 - Subtitle styling applies to addon subtitles; subtitles built into the video file use VLC's default style.
 - Streams that need browser DRM won't play.
 - On Xbox the controller's pointer is turned off (it's the browser engine's, and fought with the D-pad); Settings → Device → Controller cursor brings it back.
-- Trakt, Simkl, MDBList, Jellyfin/Emby servers and Nuvio's JavaScript provider plugins aren't implemented yet.
+- Simkl, MDBList and Nuvio's JavaScript provider plugins aren't implemented yet.
+- A Jellyfin or Emby server at home is only reachable while the console is on the same network (or if the server is reachable from the internet).
 
 
 ## Building
-Every push builds signed packages with GitHub Actions (`.github/workflows/build.yml`), and pushing a tag such as `v1.2.0` publishes a release.
+Every push builds signed packages with GitHub Actions (`.github/workflows/build.yml`), and pushing a tag such as `v1.3.0` publishes a release.
 
 Versions: the major and minor version come from `Nuvio/Package.appxmanifest` and the third number is the build's run number, so every GitHub build installs over the last. To release, set the manifest's version (e.g. `1.3.0.0`), add a `## v1.3.0` section to `CHANGELOG.md` (it becomes the release notes and the app's "What's new"), and push the tag `v1.3.0`. Builds from Visual Studio keep 0 as the third number; the app calls them developer builds and doesn't offer updates. To build locally you need Visual Studio 2022 with the **Universal Windows Platform development** workload: open `NuvioUWP.sln` and build `Release | x64` (or run the `msbuild` command from the workflow).
 

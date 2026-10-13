@@ -8,6 +8,8 @@ import { toast } from './components/ui.js';
 import { ensureDefaultAddons, refreshStaleManifests } from './services/addons.js';
 import { initAccountSync, activeProfileIndex, switchProfile } from './services/account.js';
 import { checkForUpdate, shouldAnnounce, markAnnounced } from './services/updates.js';
+import { initTrakt } from './services/trakt.js';
+import { initJellyfin } from './services/jellyfin.js';
 import { showUpdateDialog } from './components/update.js';
 import { shouldAskProfile, whoIsWatching } from './views/profiles.js';
 import { homeView } from './views/home.js';
@@ -109,6 +111,8 @@ async function boot() {
   router.start(views, shell);
   refreshStaleManifests();
   initAccountSync();
+  initTrakt();
+  initJellyfin();
 
   hideSplash();
   bridge.log(`Web app ready (${bridge.platform}${bridge.appVersion ? ' ' + bridge.appVersion : ''})`);

@@ -110,6 +110,7 @@ export function playerView({ state }) {
   let hideTimer = 0;
   let controlsVisible = true;
   let menuOpen = false;
+  let sessionStarted = false; // a "playback" start was announced for the current stream
 
   function osdButton(iconName, label, onClick, cls) {
     return h('button', { class: ['osd-btn', 'focusable', cls], type: 'button', 'aria-label': label, title: label, onClick: (e) => {
@@ -126,6 +127,7 @@ export function playerView({ state }) {
 
   // ---------- Engine events ----------
   engine.on('state', ({ state: s }) => {
+    const was = playState;
     playState = s;
     if (s === 'playing' || s === 'paused') {
       lastTimeAt = performance.now();
@@ -133,7 +135,11 @@ export function playerView({ state }) {
       if (s === 'paused') {
         showControls();
         save(true);
-      } else scheduleHide();
+        report('pause');
+      } else {
+        scheduleHide();
+        if (was === 'paused') report('resume');
+      }
     }
     if (s === 'buffering') loadingText.textContent = 'Reconnecting…';
     updateLoading();
@@ -161,6 +167,7 @@ export function playerView({ state }) {
   });
   engine.on('ready', () => {
     ready = true;
+    report('start');
     el.classList.add('ready');
     updateLoading();
     // While loading only Back is on screen; now the playback controls are.
@@ -171,6 +178,7 @@ export function playerView({ state }) {
     if (reason === 'eof') {
       ended = true;
       save(true, true);
+      report('stop');
       if (isSeries && settings.get('autoplayNext') && !nextDismissed) startNextCountdown(true);
       else exit();
       return;
@@ -189,6 +197,7 @@ export function playerView({ state }) {
 
   // ---------- Start ----------
   function start(target, at) {
+    report('stop');
     stream = target;
     ready = false;
     ended = false;
@@ -214,7 +223,36 @@ export function playerView({ state }) {
 
   // ---------- Progress ----------
   function maybeSave() {
-    if (performance.now() - lastSaved > SAVE_EVERY_MS) save();
+    if (performance.now() - lastSaved > SAVE_EVERY_MS) {
+      save();
+      report('progress');
+    }
+  }
+
+  /**
+   * Tells listeners (Trakt scrobbling, Jellyfin playback reporting) what's playing:
+   * phase is start, progress, pause, resume or stop. A stream's session starts once it's ready
+   * and stops when playback ends, the source changes or the player closes.
+   */
+  function report(phase) {
+    if (phase === 'start') {
+      if (sessionStarted) return;
+      sessionStarted = true;
+    } else if (!sessionStarted) return;
+    if (phase === 'stop') sessionStarted = false;
+    events.emit('playback', {
+      phase,
+      contentId: contentInfo.contentId,
+      contentType: meta.type,
+      videoId: contentInfo.videoId,
+      season: contentInfo.season,
+      episode: contentInfo.episode,
+      title: meta.name,
+      position: ended ? duration : currentTime(),
+      duration,
+      paused: playState === 'paused',
+      stream,
+    });
   }
 
   function save(force = false, finished = false) {
@@ -243,6 +281,7 @@ export function playerView({ state }) {
         addonUrl: stream.addonUrl || null,
         addonName: stream.addonName || null,
         behaviorHints: stream.behaviorHints || null,
+        jellyfin: stream.jellyfin || null,
       },
     }, { important: force });
   }
@@ -750,6 +789,7 @@ export function playerView({ state }) {
     if (closed) return;
     commitScrub();
     save(true);
+    report('stop');
     router.back();
   }
 
@@ -871,6 +911,7 @@ export function playerView({ state }) {
     destroy() {
       closed = true;
       save(true);
+      report('stop');
       cancelAnimationFrame(frame);
       clearTimeout(hideTimer);
       clearTimeout(scrubTimer);

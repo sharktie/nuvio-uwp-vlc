@@ -163,6 +163,34 @@ export function allWatched() {
   return Object.values(loadWatched());
 }
 
+/**
+ * Adds watched marks from another service (Trakt history, a Jellyfin server) in one go. Marks
+ * that already exist are kept, and the single event carries no title, so account sync and the
+ * other integrations don't send them anywhere again. Returns how many were new.
+ */
+export function importWatched(items) {
+  loadWatched();
+  let added = 0;
+  for (const item of items) {
+    const key = watchedKey(item.contentId, item.season ?? null, item.episode ?? null);
+    if (watched[key]) continue;
+    watched[key] = {
+      contentId: item.contentId,
+      type: item.type || (item.season != null ? 'series' : 'movie'),
+      season: item.season ?? null,
+      episode: item.episode ?? null,
+      watchedAt: item.watchedAt || Date.now(),
+      title: item.title || '',
+    };
+    added++;
+  }
+  if (added) {
+    storage.set(profileKey('watched'), watched);
+    events.emit('watched', { imported: true });
+  }
+  return added;
+}
+
 export function replaceWatched(list) {
   watched = {};
   for (const item of list) watched[watchedKey(item.contentId, item.season, item.episode)] = item;

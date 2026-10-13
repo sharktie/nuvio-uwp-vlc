@@ -4,6 +4,7 @@
 //   export default {
 //     officialServer: { backendUrl: 'https://api.nuvio.tv', publishableKey: '…' },
 //     tmdbApiKey: '…',
+//     trakt: { clientId: '…', clientSecret: '…' },
 //   };
 
 const config = {
@@ -11,6 +12,12 @@ const config = {
   officialServer: null,
   /** A TMDB key to use when the user hasn't entered their own. */
   tmdbApiKey: '',
+  /**
+   * The Trakt API app this build signs in with ({ clientId, clientSecret }, from
+   * trakt.tv/oauth/applications), or null to ask for one in Settings. apiUrl only changes for
+   * testing against tools/dev-trakt-server.mjs.
+   */
+  trakt: null,
 };
 
 try {

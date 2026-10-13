@@ -25,11 +25,13 @@ namespace Nuvio
             // first page loads. A transparent background lets the VLC video under the page show through.
             Environment.SetEnvironmentVariable("WEBVIEW2_DEFAULT_BACKGROUND_COLOR", "0");
             // Let the app reach addons and servers on the local network over plain http
-            // (e.g. a self-hosted addon at http://192.168.1.10:7000), which browsers block on an https page.
+            // (e.g. a self-hosted addon at http://192.168.1.10:7000, or a Jellyfin server), which
+            // browsers block on an https page. AutoupgradeMixedContent would otherwise rewrite the
+            // server's http image links to https, where a home server doesn't answer.
             Environment.SetEnvironmentVariable("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
                 "--autoplay-policy=no-user-gesture-required --allow-running-insecure-content " +
                 "--disable-features=BlockInsecurePrivateNetworkRequests,PrivateNetworkAccessSendPreflights," +
-                "PrivateNetworkAccessRespectPreflightResults,LocalNetworkAccessChecks");
+                "PrivateNetworkAccessRespectPreflightResults,LocalNetworkAccessChecks,AutoupgradeMixedContent");
 
             this.InitializeComponent();
             // Xbox: no mouse-mode pointer; the controller drives the page's own highlight.

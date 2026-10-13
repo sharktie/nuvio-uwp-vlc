@@ -82,6 +82,11 @@ export const DEFAULT_SETTINGS = {
   hideUnreleased: false,
   // Integrations
   tmdbApiKey: '',
+  traktScrobble: true, // scrobble playback to Trakt
+  traktImportHistory: true, // bring Trakt's watched history and paused progress in
+  traktHomeRows: true, // watchlist and recommendations on Home
+  traktClientId: '', // the user's own Trakt API app, when the build has none
+  traktClientSecret: '',
   // Device
   controllerCursor: false,
   // Account

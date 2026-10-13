@@ -70,12 +70,15 @@ jobs:
       - name: Add build settings
         # Optional repository secrets, written into web/js/config.local.js (never committed):
         # NUVIO_PUBLISHABLE_KEY builds in a Nuvio server to sign in to (NUVIO_BACKEND_URL,
-        # default https://api.nuvio.tv), and TMDB_API_KEY a TMDB key for artwork and cast.
+        # default https://api.nuvio.tv), TMDB_API_KEY a TMDB key for artwork and cast, and
+        # TRAKT_CLIENT_ID + TRAKT_CLIENT_SECRET the Trakt API app to connect Trakt with.
         shell: pwsh
         env:
           NUVIO_PUBLISHABLE_KEY: ${{ secrets.NUVIO_PUBLISHABLE_KEY }}
           NUVIO_BACKEND_URL: ${{ secrets.NUVIO_BACKEND_URL }}
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          TRAKT_CLIENT_ID: ${{ secrets.TRAKT_CLIENT_ID }}
+          TRAKT_CLIENT_SECRET: ${{ secrets.TRAKT_CLIENT_SECRET }}
         run: |
           $config = [ordered]@{}
           if ($env:NUVIO_PUBLISHABLE_KEY) {
@@ -83,6 +86,9 @@ jobs:
             $config.officialServer = [ordered]@{ backendUrl = $url; publishableKey = $env:NUVIO_PUBLISHABLE_KEY }
           }
           if ($env:TMDB_API_KEY) { $config.tmdbApiKey = $env:TMDB_API_KEY }
+          if ($env:TRAKT_CLIENT_ID -and $env:TRAKT_CLIENT_SECRET) {
+            $config.trakt = [ordered]@{ clientId = $env:TRAKT_CLIENT_ID; clientSecret = $env:TRAKT_CLIENT_SECRET }
+          }
           if ($config.Count) {
             "export default $($config | ConvertTo-Json -Compress -Depth 3);" | Set-Content web\js\config.local.js -Encoding utf8
             "Build settings added: $($config.Keys -join ', ')"
@@ -189,4 +195,12 @@ jobs:
             "Package version: $($parts[0..2] -join '.')")
           $notes -join "`n" | Set-Content release-notes.md -Encoding utf8
           Get-Content release-notes.md
-          gh release create $tag NuvioUWPVLC-x64.zip --title "Nuvio UWP VLC $tag" --notes-file release-notes.md
+          # Re-running the workflow (e.g. after adding a secret) updates the existing release.
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $tag NuvioUWPVLC-x64.zip --clobber
+            if ($LASTEXITCODE) { exit $LASTEXITCODE }
+            gh release edit $tag --notes-file release-notes.md
+          } else {
+            gh release create $tag NuvioUWPVLC-x64.zip --title "Nuvio UWP VLC $tag" --notes-file release-notes.md
+          }

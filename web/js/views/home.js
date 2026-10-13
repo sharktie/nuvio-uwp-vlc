@@ -46,7 +46,7 @@ export function homeView() {
     continueRow = buildContinueRow();
     content.appendChild(continueRow);
     for (const { addon, catalog } of catalogs) {
-      const title = settings.get('showCatalogType') ? `${catalog.name || catalog.id} - ${typeLabel(catalog.type)}` : (catalog.name || catalog.id);
+      const title = settings.get('showCatalogType') && !catalog.hideType ? `${catalog.name || catalog.id} - ${typeLabel(catalog.type)}` : (catalog.name || catalog.id);
       const shape = catalog.posterShape || 'poster';
       content.appendChild(cardRow({
         title,
@@ -112,6 +112,7 @@ export function homeView() {
 
   let pendingRefresh = 0;
   let needsRefresh = false;
+  let needsRebuild = false;
   cleanups.push(events.on('progress', () => {
     // Progress is saved every few seconds during playback; refresh once playback is over.
     clearTimeout(pendingRefresh);
@@ -121,11 +122,8 @@ export function homeView() {
     }, 500);
   }));
   cleanups.push(events.on('addons', () => {
-    needsRefresh = true;
-    if (!el.hidden) {
-      needsRefresh = false;
-      build();
-    }
+    if (el.hidden) needsRebuild = true;
+    else build();
   }));
 
   build();
@@ -134,7 +132,11 @@ export function homeView() {
     el,
     chrome: 'sidebar',
     onShow() {
-      if (needsRefresh) {
+      if (needsRebuild) {
+        needsRebuild = false;
+        needsRefresh = false;
+        build();
+      } else if (needsRefresh) {
         needsRefresh = false;
         refreshContinueRow();
       }

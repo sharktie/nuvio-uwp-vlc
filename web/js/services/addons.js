@@ -82,8 +82,40 @@ export function listAddons() {
   return load() || [];
 }
 
+// Built-in sources (Jellyfin/Emby servers, Trakt) that work like addons: they have a manifest and
+// answer catalog, meta and stream requests, but in code. They aren't in the addon list, so they
+// don't sync to the Nuvio account. Each provider is a function returning its current addons.
+const providers = [];
+
+export function registerProvider(getAddons) {
+  providers.push(getAddons);
+}
+
+function providerAddons() {
+  return providers.flatMap((get) => {
+    try {
+      return get() || [];
+    } catch (error) {
+      console.warn('Provider failed', error);
+      return [];
+    }
+  });
+}
+
+/** Tells screens that the built-in sources changed (connected, disconnected, new libraries). */
+export function providersChanged() {
+  events.emit('addons', addons);
+}
+
+/** Built-in sources first, then the installed addons in their order. */
 export function enabledAddons() {
-  return listAddons().filter((addon) => addon.enabled !== false && addon.manifest);
+  return [...providerAddons(), ...listAddons().filter((addon) => addon.enabled !== false && addon.manifest)];
+}
+
+/** One addon request: over HTTP, or answered in code by a built-in source. */
+function request(addon, resource, type, id, extra, options) {
+  if (addon.handler) return addon.handler(resource, type, id, extra || {});
+  return getJson(resourceUrl(addon, resource, type, id, extra), options);
 }
 
 export async function installAddon(input) {
@@ -236,8 +268,7 @@ export async function fetchCatalog(addon, catalog, { skip, genre, search } = {})
   if (search) extra.search = search;
   if (genre) extra.genre = genre;
   if (skip) extra.skip = skip;
-  const url = resourceUrl(addon, 'catalog', catalog.type, catalog.id, extra);
-  const data = await getJson(url, { ttl: search ? 2 * 60 * 1000 : 30 * 60 * 1000 });
+  const data = await request(addon, 'catalog', catalog.type, catalog.id, extra, { ttl: search ? 2 * 60 * 1000 : 30 * 60 * 1000 });
   return ((data && data.metas) || []).filter((m) => m && m.id && m.name).map((m) => ({ ...m, type: m.type || catalog.type }));
 }
 
@@ -249,7 +280,7 @@ export async function fetchMeta(type, id) {
   let lastError = null;
   for (const addon of candidates) {
     try {
-      const data = await getJson(resourceUrl(addon, 'meta', type, id), { ttl: 60 * 60 * 1000 });
+      const data = await request(addon, 'meta', type, id, null, { ttl: 60 * 60 * 1000 });
       if (data && data.meta) return { ...data.meta, type: data.meta.type || type, id: data.meta.id || id, addon };
     } catch (error) {
       lastError = error;
@@ -267,7 +298,7 @@ export function streamAddons(type, id) {
 
 /** Asks one addon for streams. Resolves to an array (possibly empty). */
 export async function fetchStreams(addon, type, id) {
-  const data = await getJson(resourceUrl(addon, 'stream', type, id), { ttl: 10 * 60 * 1000, timeout: STREAM_TIMEOUT_MS });
+  const data = await request(addon, 'stream', type, id, null, { ttl: 10 * 60 * 1000, timeout: STREAM_TIMEOUT_MS });
   return ((data && data.streams) || []).filter(Boolean);
 }
 
@@ -276,7 +307,7 @@ export async function fetchStreams(addon, type, id) {
 export async function fetchSubtitles(type, id, extra = {}) {
   const sources = enabledAddons().filter((a) => addonSupports(a, 'subtitles', type, id));
   const results = await Promise.allSettled(sources.map(async (addon) => {
-    const data = await getJson(resourceUrl(addon, 'subtitles', type, id, extra), { ttl: 30 * 60 * 1000, timeout: 15000 });
+    const data = await request(addon, 'subtitles', type, id, extra, { ttl: 30 * 60 * 1000, timeout: 15000 });
     return ((data && data.subtitles) || []).filter((s) => s && s.url).map((s) => ({ ...s, addonName: addonName(addon) }));
   }));
   return results.flatMap((r) => (r.status === 'fulfilled' ? r.value : []));

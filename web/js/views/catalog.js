@@ -23,7 +23,7 @@ export function catalogView({ params }) {
     return { el, chrome: 'sidebar' };
   }
   const { addon, catalog } = found;
-  title.append(`${catalog.name || catalog.id} - ${typeLabel(catalog.type)}`, h('span', { class: 'page-subtitle' }, addonName(addon)));
+  title.append(catalog.hideType ? (catalog.name || catalog.id) : `${catalog.name || catalog.id} - ${typeLabel(catalog.type)}`, h('span', { class: 'page-subtitle' }, addonName(addon)));
   const genreExtra = catalogExtra(catalog, 'genre');
   const genres = (genreExtra && genreExtra.options) || [];
   let genre = genreExtra && genreExtra.isRequired ? genres[0] : null;

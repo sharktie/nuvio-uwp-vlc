@@ -438,7 +438,12 @@ namespace Nuvio.Bridge
         {
             var filter = new HttpBaseProtocolFilter { AllowAutoRedirect = true };
             filter.CacheControl.WriteBehavior = HttpCacheWriteBehavior.NoCache;
-            return new HttpClient(filter);
+            var client = new HttpClient(filter);
+            // Some APIs (Trakt, behind Cloudflare) refuse requests without a User-Agent.
+            var version = Package.Current.Id.Version;
+            client.DefaultRequestHeaders.UserAgent.TryParseAdd(
+                string.Format("NuvioUWP/{0}.{1}.{2}", version.Major, version.Minor, version.Build));
+            return client;
         }
     }
 }

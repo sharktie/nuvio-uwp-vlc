@@ -9,7 +9,7 @@ import {
 } from '../services/addons.js';
 import { LANGUAGE_CHOICES } from '../services/subtitles.js';
 import { accountPage } from './account.js';
-import config from '../config.js';
+import { integrationsPage } from './integrations.js';
 import { DEBRID_PROVIDERS, debridAccount, setDebridAccount, validateDebridKey } from '../services/debrid.js';
 import { installKind, checkForUpdate, lastUpdateCheck } from '../services/updates.js';
 import { showUpdateDialog } from '../components/update.js';
@@ -24,7 +24,7 @@ const SECTIONS = [
   { id: 'playback', label: 'Playback', description: 'Languages, resume, next episode, streams', icon: 'play' },
   { id: 'subtitles', label: 'Subtitles', description: 'Size, colour and position of addon subtitles', icon: 'subs' },
   { id: 'appearance', label: 'Appearance', description: 'Home layout and theme', icon: 'palette' },
-  { id: 'integrations', label: 'Integrations', description: 'TMDB metadata', icon: 'link' },
+  { id: 'integrations', label: 'Integrations', description: 'Trakt, Jellyfin and Emby servers, TMDB', icon: 'link' },
   { id: 'device', label: 'Device', description: 'Controller and app options', icon: 'gamepad' },
   { id: 'about', label: 'About', description: 'Versions and licences', icon: 'info' },
 ];
@@ -315,26 +315,6 @@ function appearancePage() {
     settingToggle('showHero', 'Featured titles', 'The large banner at the top of Home'),
     settingToggle('showCatalogType', 'Show Catalog Type', 'Show type suffix next to catalog name (Movie/Series)'),
     settingToggle('hideUnreleased', 'Hide Unreleased Content', 'Hide movies and shows that haven\'t been released yet'));
-}
-
-// ---------- Integrations ----------
-
-function integrationsPage() {
-  const keyRow = () => settingRow({
-    label: 'TMDB API key',
-    description: 'Optional. Adds cast photos, "More like this", and logos and backdrops where addons lack them.',
-    value: settings.get('tmdbApiKey') ? 'Set' : config.tmdbApiKey ? 'Built in' : 'Not set',
-    onClick: async () => {
-      const value = await promptDialog({ title: 'TMDB API key', label: 'API key (v3)', value: settings.get('tmdbApiKey'), confirmLabel: 'Save' });
-      if (value === null) return;
-      settings.set('tmdbApiKey', value.trim());
-      row.replaceWith(row = keyRow());
-      focus.set(row);
-    },
-  });
-  let row = keyRow();
-  return page('Integrations', row,
-    h('p', { class: 'settings-hint' }, 'Get a free key at themoviedb.org → Settings → API.'));
 }
 
 // ---------- Device ----------
