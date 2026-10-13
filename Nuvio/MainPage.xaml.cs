@@ -63,7 +63,7 @@ namespace Nuvio
             };
             // The page has its own focus navigation for the controller; the console's mouse-mode
             // cursor would only get in the way. The web app can turn it back on.
-            WebView.RequiresPointer = RequiresPointer.Never;
+            SetPointerMode(false);
             PreviewKeyDown += OnPreviewKeyDown;
             Loaded += OnLoaded;
         }
@@ -268,7 +268,9 @@ namespace Nuvio
         public void SetPointerMode(bool enabled)
         {
             Log.Write("Pointer mode " + (enabled ? "on" : "off"));
-            WebView.RequiresPointer = enabled ? RequiresPointer.WhenFocused : RequiresPointer.Never;
+            var mode = enabled ? RequiresPointer.WhenFocused : RequiresPointer.Never;
+            RequiresPointer = mode;
+            WebView.RequiresPointer = mode;
         }
 
         public void SetWebAppUrl(string url)

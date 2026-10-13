@@ -58,7 +58,9 @@ body {
   cursor: default;
 }
 
-html.tv body { cursor: none; }
+/* The console's controller pointer, unless the user turned it on (see focus.js). WebView2 shows
+   the system pointer the page asks for, so this hides it everywhere, buttons included. */
+html.no-pointer, html.no-pointer * { cursor: none !important; }
 
 button { font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: pointer; text-align: inherit; }
 img { display: block; }

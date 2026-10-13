@@ -50,6 +50,19 @@ export const focus = {
   },
 
   init() {
+    // On the console the browser also turns the controller into a pointer (left stick moves it,
+    // A clicks). The page can't switch that off, so while it's unwanted the pointer is hidden
+    // (CSS on html.no-pointer) and its input ignored here, before anything else sees it: the
+    // highlight is the only way around, and A doesn't also click whatever is under the pointer.
+    // Clicks made by code (el.click()) aren't trusted events, so they still work.
+    for (const type of ['pointerdown', 'pointerup', 'pointermove', 'mousedown', 'mouseup', 'mousemove',
+      'click', 'dblclick', 'auxclick', 'contextmenu', 'wheel']) {
+      window.addEventListener(type, (e) => {
+        if (!e.isTrusted || !document.documentElement.classList.contains('no-pointer')) return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      }, { capture: true, passive: false });
+    }
     window.addEventListener('keydown', onKeyDown, true);
     events.on('native:input', ({ action, repeat }) => handle(action, !!repeat, 'native'));
     document.addEventListener('pointerdown', onPointerDown, true);

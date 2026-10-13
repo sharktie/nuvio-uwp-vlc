@@ -346,6 +346,7 @@ function devicePage() {
         set: (v) => {
           settings.set('controllerCursor', v);
           bridge.send('app.pointer', { enabled: v });
+          toast(v ? 'Left stick moves a pointer; A clicks under it' : 'Pointer off: use the D-pad');
         },
       }));
     rows.push(sectionHeader('DEVELOPER'),

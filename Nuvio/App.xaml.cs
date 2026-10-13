@@ -32,6 +32,8 @@ namespace Nuvio
                 "PrivateNetworkAccessRespectPreflightResults,LocalNetworkAccessChecks");
 
             this.InitializeComponent();
+            // Xbox: no mouse-mode pointer; the controller drives the page's own highlight.
+            this.RequiresPointerMode = ApplicationRequiresPointerMode.WhenRequested;
         }
 
         protected override void OnLaunched(LaunchActivatedEventArgs e)

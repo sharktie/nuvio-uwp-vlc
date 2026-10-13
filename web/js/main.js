@@ -26,7 +26,10 @@ registerView('player', playerView);
 registerView('catalog', catalogView);
 
 function applyTheme() {
-  document.documentElement.classList.toggle('amoled', !!settings.get('amoled'));
+  const root = document.documentElement;
+  root.classList.toggle('amoled', !!settings.get('amoled'));
+  // On the console the controller's pointer is off unless the user turns it on (see focus.js).
+  root.classList.toggle('no-pointer', bridge.platform === 'xbox' && !settings.get('controllerCursor'));
 }
 
 let exitArmedAt = 0;
