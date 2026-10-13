@@ -40,28 +40,12 @@ Settings → Account → **Sign in with a code** (scan the QR code, or enter the
 
 Which Nuvio server the app signs in to:
 - **Built in:** a build can include a server, so sign-in needs no setup. Nothing private is committed to this repository; the server's details go in `web/js/config.local.js` (ignored by git):
-  - **For builds you make yourself:** create `web/js/config.local.js` with `export default { officialServer: { backendUrl: 'https://api.nuvio.tv', publishableKey: '…' } };`
-  - **For the GitHub builds and releases:** add a repository secret `NUVIO_PUBLISHABLE_KEY` (and `NUVIO_BACKEND_URL` if it isn't `https://api.nuvio.tv`); the workflow writes the file before building. Anything built in can be read by anyone who downloads the package, as with any app.
 - **Self-hosted Nuvio server:** Settings → Account → Server → *Self-hosted server*, and enter its address; the app reads `/.well-known/nuvio` like the official apps do.
 - **Any other server:** *Enter server details*: the backend URL and its publishable (anon) key.
 
 Sync is gentle with the server, like Nuvio's own apps: progress goes up at most once a minute while playing (straight away on pause or stop), after the first full download only changes are fetched (every 15 minutes while the app is open), and when the server says "too many requests" the app waits as long as it asks.
 
 **TMDB (optional):** with a TMDB key (Settings → Integrations, or the `TMDB_API_KEY` secret / `tmdbApiKey` in `config.local.js`), details screens get cast photos, a "More like this" row, and logos and backdrops the addons lack.
-
-## Controller
-| Button | Action |
-| --- | --- |
-| D-pad / left stick | Move the highlight. In the player with the controls hidden: left/right seek, up/down show the controls |
-| A | Select. On a text box it opens the on-screen keyboard |
-| B | Close the open menu, otherwise go back. Press twice on Home to exit |
-| X | Play / pause in the player |
-| Y | More options on a Continue Watching card or episode; subtitles menu in the player |
-| View / Menu | Audio menu in the player |
-| LT / RT | Seek back / forward 30 seconds |
-| RB | Next episode |
-
-A USB keyboard works too (arrows, Enter, Escape/Backspace, Space).
 
 ## Troubleshooting
 The app keeps a log of starting up and playing: read it on the TV in **Settings → About → View log** (this session and the last one). To copy the whole file, download it from the Device Portal: **File explorer → LocalAppData →** the Nuvio package folder (`b7f0f2ee-…`) **→ LocalState → `nuvio-vlc.log`**. Include it when reporting a problem.
