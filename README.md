@@ -78,9 +78,9 @@ Versions: the major and minor version come from `Nuvio/Package.appxmanifest` and
 ### Deploy from Visual Studio to the Xbox
 Visual Studio can install and debug the app on a Dev Mode Xbox directly:
 1. In **Dev Home** on the Xbox, note the console's IP address (and under **Remote Access Settings**, remote access can stay as it is).
-2. In Visual Studio, set the configuration to `Debug | x64` (or `Release | x64`), open the target dropdown next to the green ▶ and choose **Remote Machine**.
+2. In Visual Studio, set the configuration to `Debug | x64` (or `Release | x64`), open the target dropdown next to the green play button and choose **Remote Machine**.
 3. Enter the Xbox's IP address, with **Authentication Mode: Universal (Unencrypted Protocol)**.
-4. Press ▶. The first time, Visual Studio asks for a PIN: on the Xbox, in Dev Home, select **Pair with Visual Studio** to show it.
+4. Press play button. The first time, Visual Studio asks for a PIN: on the Xbox, in Dev Home, select **Pair with Visual Studio** to show it.
 
 Visual Studio then deploys and starts the app on every run (Debug builds attach the debugger). A Visual Studio deployment and a Device Portal install use different signing certificates, so uninstall one before switching to the other.
 
