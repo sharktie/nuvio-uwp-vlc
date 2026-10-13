@@ -65,6 +65,16 @@ export function toggleLibrary(meta) {
   return inLibrary(meta.id);
 }
 
+/** Adds several items at once (imports). Each is synced like a normal add. */
+export function addImportedLibraryItems(list) {
+  load();
+  for (const item of list) {
+    items[item.id] = item;
+    events.emit('library', { added: item });
+  }
+  storage.set(profileKey('library'), items);
+}
+
 /** Replaces everything (account sync). */
 export function replaceLibrary(list) {
   items = {};

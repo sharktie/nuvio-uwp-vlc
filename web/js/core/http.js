@@ -8,10 +8,20 @@ const inflight = new Map(); // url -> promise
 const MAX_CACHE_ENTRIES = 400;
 
 export class HttpError extends Error {
-  constructor(message, status) {
+  constructor(message, status, retryAfter = null) {
     super(message);
     this.status = status;
+    /** Seconds the server asked us to wait (Retry-After), if it said. */
+    this.retryAfter = retryAfter;
   }
+}
+
+function retryAfterSeconds(value) {
+  if (!value) return null;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds)) return Math.max(0, seconds);
+  const date = Date.parse(value);
+  return Number.isNaN(date) ? null : Math.max(0, (date - Date.now()) / 1000);
 }
 
 /**
@@ -55,14 +65,14 @@ export async function requestJson(url, { method = 'GET', body, timeout = 20000, 
     if (bridge.native && error.name !== 'AbortError') {
       // Most likely CORS: the native side isn't bound by it.
       const raw = await bridge.fetchRaw(url, { method, headers: init.headers, body: init.body || null, timeoutMs: timeout });
-      return parse(raw.status, new TextDecoder().decode(raw.bytes), url);
+      return parse(raw.status, new TextDecoder().decode(raw.bytes), url, retryAfterSeconds(raw.headers['retry-after']));
     }
     throw error.name === 'AbortError' ? new HttpError('The request timed out', 0) : error;
   }
-  return parse(response.status, await response.text(), url);
+  return parse(response.status, await response.text(), url, retryAfterSeconds(response.headers.get('retry-after')));
 }
 
-function parse(status, text, url) {
+function parse(status, text, url, retryAfter = null) {
   if (status < 200 || status >= 300) {
     let message = `HTTP ${status}`;
     try {
@@ -70,7 +80,7 @@ function parse(status, text, url) {
       message = data.message || data.error_description || data.msg || data.error || message;
       if (typeof message !== 'string') message = JSON.stringify(message);
     } catch {}
-    throw new HttpError(message, status);
+    throw new HttpError(message, status, retryAfter);
   }
   if (!text) return null;
   try {

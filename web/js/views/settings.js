@@ -9,6 +9,7 @@ import {
 } from '../services/addons.js';
 import { LANGUAGE_CHOICES } from '../services/subtitles.js';
 import { accountPage } from './account.js';
+import config from '../config.js';
 import { DEBRID_PROVIDERS, debridAccount, setDebridAccount, validateDebridKey } from '../services/debrid.js';
 import {
   settingRow, toggleRow, button, choicePanel, promptDialog, confirmDialog, toast, emptyState,
@@ -318,8 +319,8 @@ function appearancePage() {
 function integrationsPage() {
   const keyRow = () => settingRow({
     label: 'TMDB API key',
-    description: 'Optional. Adds logos, backdrops and cast photos where addons lack them.',
-    value: settings.get('tmdbApiKey') ? 'Set' : 'Not set',
+    description: 'Optional. Adds cast photos, "More like this", and logos and backdrops where addons lack them.',
+    value: settings.get('tmdbApiKey') ? 'Set' : config.tmdbApiKey ? 'Built in' : 'Not set',
     onClick: async () => {
       const value = await promptDialog({ title: 'TMDB API key', label: 'API key (v3)', value: settings.get('tmdbApiKey'), confirmLabel: 'Save' });
       if (value === null) return;

@@ -1,10 +1,12 @@
 import { h, clear, append } from '../core/dom.js';
+import { qrSvg } from '../core/qr.js';
 import { focus } from '../core/focus.js';
 import { events, storage } from '../core/store.js';
 import {
   getServer, setServer, discoverServer, manualServer, getSession, isSignedIn, signInWithEmail, signInWithCode,
-  signOut, pullAll, pullProfiles, cachedProfiles, activeProfileIndex, switchProfile, verifyProfilePin,
+  signOut, pullAll, pullProfiles, cachedProfiles, activeProfileIndex, switchProfile, verifyProfilePin, officialServer,
 } from '../services/account.js';
+import { importFromStremio } from '../services/stremio.js';
 import { settingRow, button, promptDialog, confirmDialog, toast, openDialog, spinner, choicePanel } from '../components/ui.js';
 
 /** Settings > Account: connect a Nuvio server, sign in, profiles and sync. */
@@ -51,22 +53,15 @@ export function accountPage() {
           },
         }));
     } else {
-      add(
-        h('p', { class: 'settings-hint' }, 'Sign in with your Nuvio account to bring over the addons, library and progress from your phone or computer, without typing addon links on the TV.'),
-        h('h2', { class: 'settings-section' }, 'SERVER'),
-        settingRow({
-          label: server ? server.name : 'No server set up',
-          description: server ? server.backendUrl : 'Connect to a Nuvio server to sign in',
-          icon: 'cloud',
-          value: server ? 'Change' : 'Set up',
-          onClick: chooseServer,
-        }));
+      add(h('p', { class: 'settings-hint' }, server
+        ? 'Sign in with your Nuvio account to bring over the addons, library and progress from your phone or computer, without typing addon links on the TV.'
+        : 'This app has no Nuvio server built in. Connect to a self-hosted Nuvio server, or import your addons and library from a Stremio account below.'));
       if (server) {
         add(
           h('h2', { class: 'settings-section' }, 'SIGN IN'),
           server.tvLogin !== false ? settingRow({
             label: 'Sign in with a code',
-            description: 'Approve this device from your phone or computer',
+            description: 'Scan a QR code or enter a code on your phone or computer',
             icon: 'link',
             onClick: codeSignIn,
           }) : null,
@@ -77,7 +72,24 @@ export function accountPage() {
             onClick: emailSignIn,
           }) : null);
       }
+      add(
+        h('h2', { class: 'settings-section' }, 'SERVER'),
+        settingRow({
+          label: server ? server.name : 'No server set up',
+          description: server ? (server.official ? 'Built into this app' : server.backendUrl) : 'Connect to a Nuvio server to sign in',
+          icon: 'cloud',
+          value: server ? 'Change' : 'Set up',
+          onClick: chooseServer,
+        }));
     }
+    add(
+      h('h2', { class: 'settings-section' }, 'STREMIO'),
+      settingRow({
+        label: 'Import from Stremio',
+        description: 'Copy the addons (with their debrid setup), library and Continue Watching from your Stremio account',
+        icon: 'puzzle',
+        onClick: stremioImport,
+      }));
     if (focusedLabel) {
       const again = [...list.querySelectorAll('.focusable')].find((e) => e.textContent === focusedLabel);
       if (again) focus.set(again);
@@ -133,9 +145,10 @@ export function accountPage() {
     const choice = await choicePanel({
       title: 'Nuvio server',
       items: [
+        officialServer() ? { label: 'Nuvio', description: 'The server built into this app', value: 'official', selected: !!(getServer() && getServer().official) } : null,
         { label: 'Self-hosted server', description: 'Find it from its address', value: 'discover' },
         { label: 'Enter server details', description: 'Backend URL and publishable key', value: 'manual' },
-        getServer() ? { label: 'Remove server', value: 'remove' } : null,
+        getServer() && !getServer().official ? { label: 'Remove server', value: 'remove' } : null,
       ].filter(Boolean),
     });
     try {
@@ -153,7 +166,8 @@ export function accountPage() {
         if (!key) return;
         setServer(manualServer(url, key));
         toast('Server saved', { kind: 'success' });
-      } else if (choice === 'remove') {
+      } else if (choice === 'remove' || choice === 'official') {
+        // Without a chosen server the built-in one (if any) is used.
         setServer(null);
       }
     } catch (error) {
@@ -181,13 +195,19 @@ export function accountPage() {
       title: 'Sign in with a code',
       build: (close) => {
         const body = h('div', { class: 'code-signin' }, spinner(), h('p', null, 'Starting secure sign-in…'));
-        signInWithCode(({ code, linkUrl }) => {
-          clear(body).append(
-            h('p', null, 'On your phone or computer, open'),
-            h('div', { class: 'code-link' }, linkUrl.replace(/^https?:\/\//, '')),
-            h('p', null, 'and enter this code:'),
-            h('div', { class: 'code-value' }, code),
-            h('p', { class: 'settings-hint' }, 'Waiting for approval…'));
+        signInWithCode(({ code, url, linkUrl }) => {
+          let qr = null;
+          try {
+            qr = h('div', { class: 'code-qr', html: qrSvg(url || linkUrl) });
+          } catch {}
+          clear(body).append(h('div', { class: 'code-layout' },
+            qr || h('div'),
+            h('div', { class: 'code-text' },
+              h('p', null, qr ? 'Scan with your phone, or open' : 'On your phone or computer, open'),
+              h('div', { class: 'code-link' }, linkUrl.replace(/^https?:\/\//, '')),
+              h('p', null, 'and enter this code:'),
+              h('div', { class: 'code-value' }, code),
+              h('p', { class: 'settings-hint' }, 'Waiting for approval…'))));
         }, controller.signal).then(() => {
           toast('Signed in', { kind: 'success' });
           close(true);
@@ -198,6 +218,21 @@ export function accountPage() {
         return h('div', null, body, h('div', { class: 'dialog-actions' }, button('Cancel', { autofocus: true, onClick: () => close(null) })));
       },
     }).then(() => controller.abort());
+  }
+
+  async function stremioImport() {
+    const email = await promptDialog({ title: 'Import from Stremio', message: 'Your Stremio password is only sent to Stremio, and isn\'t kept.', label: 'Stremio email', kind: 'email', confirmLabel: 'Next' });
+    if (!email) return;
+    const password = await promptDialog({ title: 'Stremio password', label: 'Password', kind: 'password', confirmLabel: 'Import' });
+    if (!password) return;
+    try {
+      const result = await importFromStremio(email, password, (step) => toast(step));
+      const parts = [`${result.addons} new addon${result.addons === 1 ? '' : 's'}`, `${result.library} library title${result.library === 1 ? '' : 's'}`];
+      if (result.progress) parts.push(`${result.progress} in progress`);
+      toast(`Imported ${parts.join(', ')}`, { kind: 'success', duration: 5000 });
+    } catch (error) {
+      toast(`Import failed: ${error.message}`, { kind: 'error', duration: 5000 });
+    }
   }
 
   const off = events.on('account', render);

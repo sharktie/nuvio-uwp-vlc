@@ -24,3 +24,6 @@ node_modules/
 Thumbs.db
 .DS_Store
 
+
+# Build-time settings with keys (see web/js/config.js)
+web/js/config.local.js

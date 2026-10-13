@@ -97,6 +97,22 @@ export async function installAddon(input) {
   return manifest;
 }
 
+/** Adds addons that aren't installed yet (e.g. from a Stremio account), keeping the existing ones. */
+export function mergeAddons(entries) {
+  load();
+  addons = addons || [];
+  const known = new Set(addons.map((a) => a.transportUrl));
+  for (const { transportUrl, manifest } of entries) {
+    if (known.has(transportUrl)) continue;
+    known.add(transportUrl);
+    if (!Array.isArray(manifest.resources)) manifest.resources = [];
+    if (!Array.isArray(manifest.types)) manifest.types = [];
+    if (!Array.isArray(manifest.catalogs)) manifest.catalogs = [];
+    addons.push({ transportUrl, manifest, enabled: true, refreshedAt: Date.now() });
+  }
+  save();
+}
+
 export function removeAddon(transportUrl) {
   addons = listAddons().filter((a) => a.transportUrl !== transportUrl);
   save();

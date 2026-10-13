@@ -324,6 +324,20 @@ html.pointer .card:hover .card-art { box-shadow: 0 0 0 .15rem rgba(255, 255, 255
 .credit { display: flex; gap: 1rem; }
 .credit-label { color: var(--muted); min-width: 7rem; font-weight: 600; }
 
+.cast-card { width: 9.5rem; align-items: center; text-align: center; gap: .4rem; }
+.cast-photo {
+  position: relative; width: 8rem; height: 8rem; border-radius: 50%; overflow: hidden; background: var(--surface-2);
+  display: flex; align-items: center; justify-content: center; color: var(--muted); font-weight: 700; font-size: 1.8rem;
+  transition: box-shadow .18s var(--ease);
+}
+.cast-photo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .3s; }
+.cast-photo img.loaded { opacity: 1; }
+.cast-photo img.failed { display: none; }
+.cast-name { font-weight: 600; font-size: .98rem; line-height: 1.2; }
+.cast-role { color: var(--muted); font-size: .88rem; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.cast-card.focused { transform: scale(1.06); }
+.cast-card.focused .cast-photo { box-shadow: 0 0 0 .22rem var(--focus-ring); }
+
 /* ---------- Streams ---------- */
 .streams-layout { position: relative; z-index: 1; display: grid; grid-template-columns: 30rem 1fr; gap: 3rem; height: 100%; padding: 3.5rem var(--content-right) 0 5rem; }
 .streams-info { display: flex; flex-direction: column; gap: 1.1rem; padding-top: 2rem; min-width: 0; }
@@ -438,6 +452,10 @@ html.pointer .setting-row:hover:not(.focused) { background: var(--surface-2); }
 .account-email { font-size: 1.5rem; font-weight: 700; }
 .code-signin { display: flex; flex-direction: column; align-items: center; gap: .8rem; text-align: center; padding: 1rem 0; color: var(--text-2); }
 .code-link { font-size: 1.6rem; font-weight: 700; color: var(--text); }
+.code-layout { display: flex; align-items: center; gap: 2.4rem; text-align: left; }
+.code-layout .code-text { display: flex; flex-direction: column; gap: .7rem; align-items: flex-start; }
+.code-qr { width: 15rem; height: 15rem; flex: none; border-radius: .8rem; overflow: hidden; background: #fff; }
+.code-qr svg { width: 100%; height: 100%; display: block; }
 .code-value { font-size: 3.4rem; font-weight: 800; letter-spacing: .3rem; color: var(--text); padding: .6rem 1.6rem; border-radius: .8rem; background: var(--surface-2); }
 
 /* ---------- Overlays: dialogs and side panels ---------- */

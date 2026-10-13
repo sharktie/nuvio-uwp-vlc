@@ -244,7 +244,7 @@ export function playerView({ state }) {
         addonName: stream.addonName || null,
         behaviorHints: stream.behaviorHints || null,
       },
-    });
+    }, { important: force });
   }
 
   // ---------- Controls ----------

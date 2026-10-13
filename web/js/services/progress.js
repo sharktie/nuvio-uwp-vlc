@@ -65,17 +65,21 @@ export function resumeSeconds(contentId, season, episode) {
  * duration (ms), plus display fields (title, poster, background, logo, episodeTitle, thumbnail,
  * stream: { url, title, addonUrl, bingeGroup }) }.
  */
-export function saveProgress(info) {
+export function saveProgress(info, { important = false, keepTime = false } = {}) {
   loadProgress();
   const key = progressKey(info.contentId, info.season, info.episode);
   const previous = progress[key] || {};
-  const entry = { ...previous, ...info, key, lastWatched: Date.now() };
+  // keepTime: an import that already knows when it was watched.
+  const lastWatched = keepTime && info.lastWatched ? info.lastWatched : Date.now();
+  if (keepTime && previous.lastWatched > lastWatched) return previous;
+  const entry = { ...previous, ...info, key, lastWatched };
   progress[key] = entry;
   storage.set(profileKey('progress'), progress);
   if (isCompleted(entry) && !isWatched(info.contentId, info.season, info.episode)) {
     markWatched(info.contentId, info.season, info.episode, true, { title: info.title, type: info.contentType });
   }
-  events.emit('progress', { entry });
+  // important: a pause, stop or finish, as opposed to the regular save during playback.
+  events.emit('progress', { entry, important });
   return entry;
 }
 

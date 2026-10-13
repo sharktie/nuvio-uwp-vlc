@@ -61,6 +61,29 @@ jobs:
             -TextExtension @('2.5.29.37={text}1.3.6.1.5.5.7.3.3', '2.5.29.19={text}')
           "CERT_THUMBPRINT=$($cert.Thumbprint)" >> $env:GITHUB_ENV
 
+      - name: Add build settings
+        # Optional repository secrets, written into web/js/config.local.js (never committed):
+        # NUVIO_PUBLISHABLE_KEY builds in a Nuvio server to sign in to (NUVIO_BACKEND_URL,
+        # default https://api.nuvio.tv), and TMDB_API_KEY a TMDB key for artwork and cast.
+        shell: pwsh
+        env:
+          NUVIO_PUBLISHABLE_KEY: ${{ secrets.NUVIO_PUBLISHABLE_KEY }}
+          NUVIO_BACKEND_URL: ${{ secrets.NUVIO_BACKEND_URL }}
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+        run: |
+          $config = [ordered]@{}
+          if ($env:NUVIO_PUBLISHABLE_KEY) {
+            $url = if ($env:NUVIO_BACKEND_URL) { $env:NUVIO_BACKEND_URL } else { 'https://api.nuvio.tv' }
+            $config.officialServer = [ordered]@{ backendUrl = $url; publishableKey = $env:NUVIO_PUBLISHABLE_KEY }
+          }
+          if ($env:TMDB_API_KEY) { $config.tmdbApiKey = $env:TMDB_API_KEY }
+          if ($config.Count) {
+            "export default $($config | ConvertTo-Json -Compress -Depth 3);" | Set-Content web\js\config.local.js -Encoding utf8
+            "Build settings added: $($config.Keys -join ', ')"
+          } else {
+            'No build settings: sign-in uses a server chosen in the app.'
+          }
+
       - name: Build package
         shell: pwsh
         run: >

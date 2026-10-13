@@ -5,7 +5,9 @@ import { formatRuntime, formatEpisodeCode, formatTimeLeft, formatAirs, typeLabel
 import { fetchMeta, sortedVideos, seasonsOf, upNext, isReleased, yearText, genresOf } from '../services/meta.js';
 import { inLibrary, toggleLibrary } from '../services/library.js';
 import { getProgress, isWatched, markWatched, isCompleted } from '../services/progress.js';
-import { playVideo } from '../services/navigation.js';
+import { playVideo, openTitle } from '../services/navigation.js';
+import { tmdbExtras, imdbIdFor } from '../services/tmdb.js';
+import { posterCard } from '../components/cards.js';
 import { episodeCard } from '../components/cards.js';
 import { button, chip, spinner, emptyState, choicePanel, toast } from '../components/ui.js';
 import { router } from '../core/router.js';
@@ -21,6 +23,7 @@ export function detailsView({ params, state }) {
   const cleanups = [];
   let meta = null;
   let season = null;
+  let closed = false;
 
   const setBackdrop = (url) => {
     if (url) backdropImg.style.backgroundImage = `url("${url.replace(/"/g, '%22')}")`;
@@ -122,7 +125,7 @@ export function detailsView({ params, state }) {
     ].filter(([, list]) => Array.isArray(list) && list.length);
     if (credits.length) {
       body.appendChild(h('section', { class: 'details-credits' },
-        credits.map(([label, list]) => h('div', { class: 'credit' }, h('span', { class: 'credit-label' }, label), h('span', null, list.slice(0, 8).join(', '))))));
+        credits.map(([label, list]) => h('div', { class: 'credit', dataset: { credit: label } }, h('span', { class: 'credit-label' }, label), h('span', null, list.slice(0, 8).join(', '))))));
     }
   }
 
@@ -190,6 +193,7 @@ export function detailsView({ params, state }) {
       }
       render();
       focus.restore(el);
+      addTmdbExtras();
     } catch (error) {
       clear(body);
       body.appendChild(h('div', { class: 'center-fill' }, emptyState({
@@ -199,6 +203,63 @@ export function detailsView({ params, state }) {
         actions: [button('Retry', { variant: 'primary', icon: 'refresh', onClick: load }), button('Back', { onClick: () => router.back() })],
       })));
       focus.restore(el);
+    }
+  }
+
+  // With a TMDB key: cast photos, "More like this", and artwork the addon didn't have.
+  async function addTmdbExtras() {
+    let extras;
+    try {
+      extras = await tmdbExtras(meta);
+    } catch (error) {
+      console.warn('TMDB lookup failed', error);
+      return;
+    }
+    if (!extras || closed) return;
+    if (!meta.background && extras.background) {
+      meta.background = extras.background;
+      setBackdrop(extras.background);
+    }
+    const title = body.querySelector('.details-title');
+    if (!meta.logo && extras.logo && title && !body.querySelector('.details-logo')) {
+      meta.logo = extras.logo;
+      const logo = img(extras.logo, { class: 'details-logo', alt: meta.name, loading: 'eager' });
+      logo.addEventListener('load', () => title.classList.add('has-logo'), { once: true });
+      title.before(logo);
+    }
+    const credits = body.querySelector('.details-credits');
+    if (extras.cast.length) {
+      const castLine = body.querySelector('[data-credit="Cast"]');
+      if (castLine) castLine.remove();
+      const track = h('div', { class: 'row-track', 'data-scroll-x': '', 'data-nav-group': '' },
+        extras.cast.map((c) => h('div', { class: 'card cast-card focusable', tabindex: '-1', title: c.name },
+          h('div', { class: 'cast-photo' }, h('span', null, initials(c.name)), c.photo ? img(c.photo) : null),
+          h('span', { class: 'cast-name' }, c.name),
+          c.character ? h('span', { class: 'cast-role' }, c.character) : null)));
+      const row = h('section', { class: 'row row-cast', 'data-nav-row': '' },
+        h('header', { class: 'row-header' }, h('h2', { class: 'row-title' }, 'Cast')), track);
+      if (credits) credits.before(row);
+      else body.appendChild(row);
+    }
+    if (extras.similar.length) {
+      const track = h('div', { class: 'row-track', 'data-scroll-x': '', 'data-nav-group': '' },
+        extras.similar.map((item) => posterCard(item, { onClick: () => openSimilar(item) })));
+      body.appendChild(h('section', { class: 'row', 'data-nav-row': '' },
+        h('header', { class: 'row-header' }, h('h2', { class: 'row-title' }, 'More Like This'), h('span', { class: 'row-subtitle' }, 'TMDB')),
+        track));
+    }
+  }
+
+  async function openSimilar(item) {
+    try {
+      const imdbId = await imdbIdFor(item.kind, item.tmdbId);
+      if (!imdbId) {
+        toast('Your addons can\'t open this title', { kind: 'error' });
+        return;
+      }
+      openTitle({ ...item, id: imdbId });
+    } catch (error) {
+      toast(`Couldn't open it: ${error.message}`, { kind: 'error' });
     }
   }
 
@@ -263,9 +324,14 @@ export function detailsView({ params, state }) {
       }
     },
     destroy() {
+      closed = true;
       cleanups.forEach((off) => off());
     },
   };
+}
+
+function initials(name) {
+  return String(name || '').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('');
 }
 
 function openTrailer(ytId) {

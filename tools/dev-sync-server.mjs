@@ -12,6 +12,7 @@ const KEY = 'dev-publishable-key';
 const tokens = new Map(); // access token -> user id
 const refresh = new Map(); // refresh token -> user id
 const deviceSessions = new Map(); // device code -> { userCode, nonce, status }
+let rateLimited = 0;
 const db = {
   profiles: [
     { id: 'p1', user_id: 'u1', profile_index: 1, name: 'Main', avatar_color_hex: '#1E88E5', uses_primary_addons: false, pin_enabled: false },
@@ -87,7 +88,7 @@ const rpcs = {
 };
 
 http.createServer(async (req, res) => {
-  const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' };
+  const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Expose-Headers': 'Retry-After' };
   const url = new URL(req.url, `http://${req.headers.host}`);
   const send = (status, data) => {
     res.writeHead(status, { ...cors, 'Content-Type': 'application/json' });
@@ -110,7 +111,19 @@ http.createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
     return res.end('Approved. Go back to the app.');
   }
+  if (path === '/ratelimit') {
+    // Test the app's backoff: the next N API requests get "429, retry after 2 seconds".
+    rateLimited = Number(url.searchParams.get('count') || 3);
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    return res.end(`Next ${rateLimited} requests will be rate limited.`);
+  }
   if (req.headers.apikey !== KEY) return send(401, { message: 'Invalid API key' });
+  if (rateLimited > 0) {
+    rateLimited--;
+    console.log('  -> 429 (rate limited)');
+    res.writeHead(429, { ...cors, 'Content-Type': 'application/json', 'Retry-After': '2', 'Access-Control-Expose-Headers': 'Retry-After' });
+    return res.end(JSON.stringify({ message: 'Too many requests' }));
+  }
   if (path === '/auth/v1/token') {
     if (url.searchParams.get('grant_type') === 'password') {
       return json.email === 'test@example.com' && json.password === 'test' ? send(200, issue('u1')) : send(400, { error_description: 'Invalid login credentials' });

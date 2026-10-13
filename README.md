@@ -32,16 +32,22 @@ This app is for Xbox consoles in **Developer Mode**, which is how Xbox lets you 
 ## Getting streams to play
 - **Debrid addons (recommended):** set up Torrentio, Comet, MediaFusion, AIOStreams or similar with Real-Debrid, AllDebrid, TorBox, Premiumize etc. on their configure page, and install the manifest URL it gives you (Settings → Addons → Install Addon). Their links play straight away.
 - **Built-in debrid:** Settings → Debrid → connect TorBox, Real-Debrid or Premiumize with your API key. Torrent results from any addon then show "via TB/RD/PM" and play if the service has them cached.
-- **Without typing on the TV:** sign in to your Nuvio account (below) and the addons you already use on your phone or computer come across.
+- **Without typing on the TV:** Settings → Account → **Import from Stremio** copies the addons (already set up with your debrid service), library and Continue Watching from a Stremio account. Or sign in to a Nuvio account (below).
 - Torrents can't be streamed on the console itself; without debrid they're hidden (Settings → Playback → Show torrent results lists them anyway).
 
 ## Nuvio account
-Settings → Account → **Server** first, then **Sign in with a code** (enter the code shown on the TV at the link it shows, on any device) or **Sign in with email**.
+Settings → Account → **Sign in with a code** (scan the QR code, or enter the code at the link shown, on your phone or computer) or **Sign in with email**. Your addons, library, Continue Watching and watched marks then sync with your other Nuvio apps; profiles with *uses primary addons* use profile 1's addons, and PIN-locked profiles ask for the PIN.
 
-- **Self-hosted Nuvio server:** choose *Self-hosted server* and enter its address; the app reads `/.well-known/nuvio` like the official apps do.
-- **Other servers:** choose *Enter server details* and enter the backend URL and its publishable (anon) key.
+Which Nuvio server the app signs in to:
+- **Built in:** a build can include a server, so sign-in needs no setup. Nothing private is committed to this repository; the server's details go in `web/js/config.local.js` (ignored by git):
+  - **For builds you make yourself:** create `web/js/config.local.js` with `export default { officialServer: { backendUrl: 'https://api.nuvio.tv', publishableKey: '…' } };`
+  - **For the GitHub builds and releases:** add a repository secret `NUVIO_PUBLISHABLE_KEY` (and `NUVIO_BACKEND_URL` if it isn't `https://api.nuvio.tv`); the workflow writes the file before building. Anything built in can be read by anyone who downloads the package, as with any app.
+- **Self-hosted Nuvio server:** Settings → Account → Server → *Self-hosted server*, and enter its address; the app reads `/.well-known/nuvio` like the official apps do.
+- **Any other server:** *Enter server details*: the backend URL and its publishable (anon) key.
 
-Profiles with *uses primary addons* use profile 1's addons, as in Nuvio; PIN-locked profiles ask for the PIN.
+Sync is gentle with the server, like Nuvio's own apps: progress goes up at most once a minute while playing (straight away on pause or stop), the library is re-read every 15 minutes while the app is open, and when the server says "too many requests" the app waits as long as it asks.
+
+**TMDB (optional):** with a TMDB key (Settings → Integrations, or the `TMDB_API_KEY` secret / `tmdbApiKey` in `config.local.js`), details screens get cast photos, a "More like this" row, and logos and backdrops the addons lack.
 
 ## Controller
 | Button | Action |
@@ -63,6 +69,7 @@ The app writes a log you can download from the Device Portal: **File explorer �
 Known limitations:
 - Subtitle styling applies to addon subtitles; subtitles built into the video file use VLC's default style.
 - Streams that need browser DRM won't play.
+- On Xbox the controller's pointer is turned off (it's the browser engine's, and fought with the D-pad); Settings → Device → Controller cursor brings it back.
 - Trakt, Simkl, MDBList, Jellyfin/Emby servers and Nuvio's JavaScript provider plugins aren't implemented yet.
 
 ## Development
@@ -77,7 +84,7 @@ Then open http://localhost:8080. In a browser the player uses `<video>` (MP4/Web
 - **Try changes on the Xbox without reinstalling:** run `tools/serve.mjs` on your PC, then on the Xbox go to Settings → Device → Web app address and enter `http://<your PC's IP>:8080`. The app loads the web app from your PC; clear the address to go back to the built-in one.
 - **Native code paths in a browser:** open http://localhost:8080/?mockNative. `web/dev/mock-native.js` pretends to be the UWP app (Xbox mode, VLC events, text input) and plays video behind the transparent page like VLC does.
 - **Streams without a debrid account:** `node tools/dev-addon.mjs` serves sample videos (WebM, MP4, a redirect, MKV, HEVC, a broken link, a torrent-only result) and subtitles; install `http://localhost:7001/manifest.json`.
-- **Account sync without a real server:** `node tools/dev-sync-server.mjs` is an in-memory stand-in for a Nuvio server. Connect to `http://localhost:7002` as a self-hosted server; sign in with `test@example.com` / `test`, or with a code approved at `http://localhost:7002/approve?code=…`.
+- **Account sync without a real server:** `node tools/dev-sync-server.mjs` is an in-memory stand-in for a Nuvio server. Connect to `http://localhost:7002` as a self-hosted server; sign in with `test@example.com` / `test`, or with a code approved at `http://localhost:7002/approve?code=…`. Opening `http://localhost:7002/ratelimit?count=3` makes the next three requests fail with "429, retry after 2 seconds", to try the backoff.
 
 ## Building
 Every push builds signed packages with GitHub Actions (`.github/workflows/build.yml`), and pushing a tag such as `v1.0.0` publishes a release. To build locally you need Visual Studio 2022 with the **Universal Windows Platform development** workload: open `NuvioUWP.sln` and build `Release | x64` (or run the `msbuild` command from the workflow).

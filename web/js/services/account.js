@@ -1,9 +1,14 @@
 // Nuvio account: sign-in and sync of addons, library, watch progress and watched marks with a
-// Nuvio server (the Supabase backend the Nuvio apps use; see NuvioMobile core/sync). The server
-// is configurable: a self-hosted Nuvio server is found from its address (/.well-known/nuvio),
-// or its URL and publishable key are entered directly.
+// Nuvio server (the Supabase backend the Nuvio apps use; see NuvioMobile core/sync). A build can
+// include a server to use by default (web/js/config.js); otherwise a self-hosted Nuvio server is
+// found from its address (/.well-known/nuvio), or its URL and publishable key are entered directly.
+//
+// Like Nuvio's own apps, this stays gentle with the server: progress goes up at most once a minute
+// while playing (straight away on pause or stop), and a "too many requests" answer pauses all
+// requests for as long as the server asks (NuvioMobile core/network/BackendRateLimit.kt).
 
 import { requestJson, HttpError } from '../core/http.js';
+import config from '../config.js';
 import { events, storage } from '../core/store.js';
 import { bridge } from '../core/bridge.js';
 import { listAddons, replaceAddons, addonName } from './addons.js';
@@ -14,18 +19,38 @@ const SERVER_KEY = 'server';
 const SESSION_KEY = 'session';
 const CLIENT_ID_KEY = 'syncClientId';
 const PUSH_DEBOUNCE_MS = 1500;
-const PULL_INTERVAL_MS = 5 * 60 * 1000;
+const PROGRESS_PUSH_INTERVAL_MS = 60 * 1000;
+const PULL_INTERVAL_MS = 15 * 60 * 1000;
+const RESUME_PULL_AFTER_MS = 2 * 60 * 1000;
+const MAX_BACKOFF_MS = 30 * 1000;
 const OFFICIAL_LINK_URL = 'https://nuvio.tv/link';
 
 let applyingRemote = false;
 let pullTimer = 0;
+let cooldownUntil = 0;
+let lastProgressPush = 0;
 const pending = { addons: false, library: new Map(), libraryDeletes: new Map(), progress: new Map(), progressDeletes: new Set(), watched: new Map(), watchedDeletes: new Map() };
 let pushTimer = 0;
 
 // ---------- Server ----------
 
+/** The server built into this app, if any (see web/js/config.js). */
+export function officialServer() {
+  const official = config.officialServer;
+  if (!official || !official.backendUrl || !official.publishableKey) return null;
+  return {
+    backendUrl: String(official.backendUrl).replace(/\/+$/, ''),
+    publishableKey: String(official.publishableKey).trim(),
+    emailPasswordAuth: true,
+    tvLogin: true,
+    linkUrl: official.linkUrl || OFFICIAL_LINK_URL,
+    name: 'Nuvio',
+    official: true,
+  };
+}
+
 export function getServer() {
-  return storage.get(SERVER_KEY, null);
+  return storage.get(SERVER_KEY, null) || officialServer();
 }
 
 export function setServer(server) {
@@ -112,20 +137,41 @@ function headers(token) {
   };
 }
 
+/**
+ * Runs a request to the Nuvio server, waiting out any cooldown first. A 429 (or a 503 that says
+ * when to come back) starts a cooldown for every request, as long as the server asks or with
+ * backoff otherwise; the request is then retried a couple of times.
+ */
+async function backend(doRequest) {
+  for (let attempt = 0; ; attempt++) {
+    const wait = cooldownUntil - Date.now();
+    if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+    try {
+      return await doRequest();
+    } catch (error) {
+      const limited = error instanceof HttpError && (error.status === 429 || (error.status === 503 && error.retryAfter != null));
+      if (!limited) throw error;
+      const delay = error.retryAfter != null ? error.retryAfter * 1000 : Math.min(MAX_BACKOFF_MS, 1000 * 2 ** attempt);
+      cooldownUntil = Math.max(cooldownUntil, Date.now() + delay + Math.random() * 1000);
+      if (attempt >= 2) throw error;
+    }
+  }
+}
+
 async function accessToken() {
   const session = getSession();
   if (!session) throw new Error('Not signed in');
   if (session.expiresAt - Date.now() > 60000) return session.accessToken;
   const server = getServer();
   try {
-    const data = await requestJson(`${server.backendUrl}/auth/v1/token?grant_type=refresh_token`, {
+    const data = await backend(() => requestJson(`${server.backendUrl}/auth/v1/token?grant_type=refresh_token`, {
       method: 'POST',
       headers: headers(),
       body: { refresh_token: session.refreshToken },
-    });
+    }));
     return saveSession(data).accessToken;
   } catch (error) {
-    if (error instanceof HttpError && error.status >= 400 && error.status < 500) {
+    if (error instanceof HttpError && error.status >= 400 && error.status < 500 && error.status !== 429) {
       // The refresh token was revoked: the user has to sign in again.
       storage.set(SESSION_KEY, undefined);
       events.emit('account', { signedOut: true });
@@ -138,21 +184,22 @@ async function rpc(name, params = {}, { anonymous = false } = {}) {
   const server = getServer();
   if (!server) throw new Error('No Nuvio server is set up.');
   const token = anonymous ? null : await accessToken();
-  return requestJson(`${server.backendUrl}/rest/v1/rpc/${name}`, { method: 'POST', headers: headers(token), body: params });
+  return backend(() => requestJson(`${server.backendUrl}/rest/v1/rpc/${name}`, { method: 'POST', headers: headers(token), body: params }));
 }
 
 async function select(table, query) {
   const server = getServer();
-  return requestJson(`${server.backendUrl}/rest/v1/${table}?${query}`, { headers: headers(await accessToken()) });
+  const token = await accessToken();
+  return backend(() => requestJson(`${server.backendUrl}/rest/v1/${table}?${query}`, { headers: headers(token) }));
 }
 
 export async function signInWithEmail(email, password) {
   const server = getServer();
-  const data = await requestJson(`${server.backendUrl}/auth/v1/token?grant_type=password`, {
+  const data = await backend(() => requestJson(`${server.backendUrl}/auth/v1/token?grant_type=password`, {
     method: 'POST',
     headers: headers(),
     body: { email: email.trim(), password },
-  });
+  }));
   saveSession(data);
   await afterSignIn();
 }
@@ -198,11 +245,11 @@ export async function signInWithCode(onCode, signal) {
     }
     if (status === 'pending') continue;
     if (status !== 'approved') throw new Error('This code expired. Try again.');
-    const data = await requestJson(`${server.backendUrl}/functions/v1/tv-logins-exchange`, {
+    const data = await backend(() => requestJson(`${server.backendUrl}/functions/v1/tv-logins-exchange`, {
       method: 'POST',
       headers: headers(),
       body: { code: started.device_code, device_nonce: nonce },
-    });
+    }));
     saveSession(data);
     await afterSignIn();
     return;
@@ -363,9 +410,28 @@ function mergeWatched(rows) {
   replaceWatched([...local.values()]);
 }
 
-function schedulePush() {
+let progressTimer = 0;
+let retryTimer = 0;
+
+function schedulePush(delay = PUSH_DEBOUNCE_MS) {
   clearTimeout(pushTimer);
-  pushTimer = setTimeout(() => push().catch((error) => console.warn('Sync push failed', error)), PUSH_DEBOUNCE_MS);
+  pushTimer = setTimeout(() => push().catch((error) => console.warn('Sync push failed', error)), delay);
+}
+
+// Progress saved every few seconds during playback goes up at most once a minute; a save that
+// matters (pause, stop, finished) goes straight away.
+function scheduleProgressPush(important) {
+  const due = lastProgressPush + PROGRESS_PUSH_INTERVAL_MS - Date.now();
+  if (important || due <= PUSH_DEBOUNCE_MS) {
+    clearTimeout(progressTimer);
+    progressTimer = 0;
+    schedulePush();
+  } else if (!progressTimer) {
+    progressTimer = setTimeout(() => {
+      progressTimer = 0;
+      schedulePush(0);
+    }, due);
+  }
 }
 
 async function push() {
@@ -373,60 +439,70 @@ async function push() {
   const profile = activeProfileIndex();
   const origin = { p_origin_client_id: clientId() };
   const jobs = [];
+  // A failed send goes back in the queue (unless something newer replaced it) and is retried.
+  const send = (name, params, restore) => jobs.push(rpc(name, { p_profile_id: profile, ...params, ...origin }).catch((error) => {
+    restore();
+    throw error;
+  }));
   if (pending.addons) {
     pending.addons = false;
-    const profileForAddons = addonsProfileIndex();
-    if (profileForAddons === profile) {
-      jobs.push(rpc('sync_push_addons', {
-        p_profile_id: profile,
+    if (addonsProfileIndex() === profile) {
+      send('sync_push_addons', {
         p_addons: listAddons().map((a, i) => ({ url: a.transportUrl, name: addonName(a), enabled: a.enabled !== false, sort_order: i })),
-        ...origin,
-      }));
+      }, () => (pending.addons = true));
     }
   }
+  const takeAll = (map) => {
+    const entries = [...map.entries()];
+    map.clear();
+    return entries;
+  };
+  const putBack = (map, entries) => () => entries.forEach(([key, value]) => !map.has(key) && map.set(key, value));
   if (pending.library.size) {
-    const items = [...pending.library.values()].map(libraryToRow);
-    pending.library.clear();
-    jobs.push(rpc('sync_push_library_items', { p_profile_id: profile, p_items: items, ...origin }));
+    const items = takeAll(pending.library);
+    send('sync_push_library_items', { p_items: items.map(([, item]) => libraryToRow(item)) }, putBack(pending.library, items));
   }
   if (pending.libraryDeletes.size) {
-    const keys = [...pending.libraryDeletes.values()];
-    pending.libraryDeletes.clear();
-    jobs.push(rpc('sync_delete_library_items', { p_profile_id: profile, p_keys: keys, ...origin }));
+    const keys = takeAll(pending.libraryDeletes);
+    send('sync_delete_library_items', { p_keys: keys.map(([, key]) => key) }, putBack(pending.libraryDeletes, keys));
   }
   if (pending.progress.size) {
-    const entries = [...pending.progress.values()].map((e) => ({
-      content_id: e.contentId,
-      content_type: e.contentType,
-      video_id: e.videoId || e.contentId,
-      season: e.season ?? null,
-      episode: e.episode ?? null,
-      position: Math.round(e.position || 0),
-      duration: Math.round(e.duration || 0),
-      last_watched: e.lastWatched || Date.now(),
-      progress_key: e.key,
-    }));
-    pending.progress.clear();
-    jobs.push(rpc('sync_push_watch_progress', { p_profile_id: profile, p_entries: entries, ...origin }));
+    lastProgressPush = Date.now();
+    const entries = takeAll(pending.progress);
+    send('sync_push_watch_progress', {
+      p_entries: entries.map(([, e]) => ({
+        content_id: e.contentId,
+        content_type: e.contentType,
+        video_id: e.videoId || e.contentId,
+        season: e.season ?? null,
+        episode: e.episode ?? null,
+        position: Math.round(e.position || 0),
+        duration: Math.round(e.duration || 0),
+        last_watched: e.lastWatched || Date.now(),
+        progress_key: e.key,
+      })),
+    }, putBack(pending.progress, entries));
   }
   if (pending.progressDeletes.size) {
     const keys = [...pending.progressDeletes];
     pending.progressDeletes.clear();
-    jobs.push(rpc('sync_delete_watch_progress', { p_profile_id: profile, p_keys: keys, ...origin }));
+    send('sync_delete_watch_progress', { p_keys: keys }, () => keys.forEach((k) => pending.progressDeletes.add(k)));
   }
   if (pending.watched.size) {
-    const items = [...pending.watched.values()];
-    pending.watched.clear();
-    jobs.push(rpc('sync_push_watched_items', { p_profile_id: profile, p_items: items, ...origin }));
+    const items = takeAll(pending.watched);
+    send('sync_push_watched_items', { p_items: items.map(([, item]) => item) }, putBack(pending.watched, items));
   }
   if (pending.watchedDeletes.size) {
-    const keys = [...pending.watchedDeletes.values()];
-    pending.watchedDeletes.clear();
-    jobs.push(rpc('sync_delete_watched_items', { p_profile_id: profile, p_keys: keys, ...origin }));
+    const keys = takeAll(pending.watchedDeletes);
+    send('sync_delete_watched_items', { p_keys: keys.map(([, key]) => key) }, putBack(pending.watchedDeletes, keys));
   }
   const results = await Promise.allSettled(jobs);
   const failed = results.filter((r) => r.status === 'rejected');
-  if (failed.length) console.warn('Some sync pushes failed', failed.map((f) => f.reason && f.reason.message));
+  if (failed.length) {
+    console.warn('Some sync pushes failed; retrying in a minute', failed.map((f) => f.reason && f.reason.message));
+    clearTimeout(retryTimer);
+    retryTimer = setTimeout(() => schedulePush(0), Math.max(60000, cooldownUntil - Date.now()));
+  }
 }
 
 function startBackgroundSync() {
@@ -462,7 +538,8 @@ export function initAccountSync() {
       pending.progress.delete(entry.key);
       pending.progressDeletes.add(entry.key);
     }
-    schedulePush();
+    if (change.entry && !(change.removed || []).length) scheduleProgressPush(!!change.important);
+    else schedulePush();
   });
   events.on('watched', (change) => {
     if (applyingRemote || !isSignedIn() || !change || !change.contentId) return;
@@ -489,7 +566,7 @@ export function initAccountSync() {
     if (document.hidden) {
       clearTimeout(pushTimer);
       push().catch(() => {});
-    } else if (isSignedIn() && Date.now() - storage.get('lastSync', 0) > 60000) {
+    } else if (isSignedIn() && Date.now() - storage.get('lastSync', 0) > RESUME_PULL_AFTER_MS) {
       pullAll().catch(() => {});
     }
   });
