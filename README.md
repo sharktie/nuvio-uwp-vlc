@@ -56,19 +56,6 @@ Known limitations:
 - On Xbox the controller's pointer is turned off (it's the browser engine's, and fought with the D-pad); Settings → Device → Controller cursor brings it back.
 - Trakt, Simkl, MDBList, Jellyfin/Emby servers and Nuvio's JavaScript provider plugins aren't implemented yet.
 
-## Development
-The web app has no build step: plain ES modules, served as files.
-
-```bash
-node tools/serve.mjs
-```
-
-Then open http://localhost:8080. In a browser the player uses `<video>` (MP4/WebM only); in the app it uses VLC.
-
-- **Try changes on the Xbox without reinstalling:** run `tools/serve.mjs` on your PC, then on the Xbox go to Settings → Device → Web app address and enter `http://<your PC's IP>:8080`. The app loads the web app from your PC; clear the address to go back to the built-in one.
-- **Native code paths in a browser:** open http://localhost:8080/?mockNative. `web/dev/mock-native.js` pretends to be the UWP app (Xbox mode, VLC events, text input) and plays video behind the transparent page like VLC does.
-- **Streams without a debrid account:** `node tools/dev-addon.mjs` serves sample videos (WebM, MP4, a redirect, MKV, HEVC, a broken link, a torrent-only result) and subtitles; install `http://localhost:7001/manifest.json`.
-- **Account sync without a real server:** `node tools/dev-sync-server.mjs` is an in-memory stand-in for a Nuvio server. Connect to `http://localhost:7002` as a self-hosted server; sign in with `test@example.com` / `test`, or with a code approved at `http://localhost:7002/approve?code=…`. Opening `http://localhost:7002/ratelimit?count=3` makes the next three requests fail with "429, retry after 2 seconds", to try the backoff.
 
 ## Building
 Every push builds signed packages with GitHub Actions (`.github/workflows/build.yml`), and pushing a tag such as `v1.2.0` publishes a release.
