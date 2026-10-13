@@ -45,7 +45,7 @@ Which Nuvio server the app signs in to:
 - **Self-hosted Nuvio server:** Settings → Account → Server → *Self-hosted server*, and enter its address; the app reads `/.well-known/nuvio` like the official apps do.
 - **Any other server:** *Enter server details*: the backend URL and its publishable (anon) key.
 
-Sync is gentle with the server, like Nuvio's own apps: progress goes up at most once a minute while playing (straight away on pause or stop), the library is re-read every 15 minutes while the app is open, and when the server says "too many requests" the app waits as long as it asks.
+Sync is gentle with the server, like Nuvio's own apps: progress goes up at most once a minute while playing (straight away on pause or stop), after the first full download only changes are fetched (every 15 minutes while the app is open), and when the server says "too many requests" the app waits as long as it asks.
 
 **TMDB (optional):** with a TMDB key (Settings → Integrations, or the `TMDB_API_KEY` secret / `tmdbApiKey` in `config.local.js`), details screens get cast photos, a "More like this" row, and logos and backdrops the addons lack.
 

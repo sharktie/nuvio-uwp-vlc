@@ -42,19 +42,34 @@ function issue(userId) {
   return { access_token: access, refresh_token: ref, token_type: 'bearer', expires_in: 3600, user: { id: userId, email: 'test@example.com' } };
 }
 
-function upsert(list, items, profile, keyFields) {
+// Change feed for delta sync: every change gets the next event id.
+let eventSeq = 0;
+const feed = { library: [], progress: [], watched: [] };
+const record = (kind, operation, profile, row) => feed[kind].push({ ...row, profile_id: profile, operation, event_id: ++eventSeq });
+const cursorOf = (kind, profile) => feed[kind].filter((e) => e.profile_id === profile).reduce((max, e) => Math.max(max, e.event_id), 0);
+const changesSince = (kind, p) => feed[kind]
+  .filter((e) => e.profile_id === p.p_profile_id && e.event_id > p.p_since_event_id)
+  .sort((a, b) => a.event_id - b.event_id)
+  .slice(0, p.p_limit);
+for (const row of db.library) record('library', 'upsert', row.profile_id, row);
+for (const row of db.progress) record('progress', 'upsert', row.profile_id, row);
+for (const row of db.watched) record('watched', 'upsert', row.profile_id, row);
+
+function upsert(list, items, profile, keyFields, kind) {
   for (const item of items) {
     const row = { ...item, profile_id: profile };
     const index = list.findIndex((r) => r.profile_id === profile && keyFields.every((k) => (r[k] ?? null) === (row[k] ?? null)));
     if (index >= 0) list[index] = row;
     else list.push(row);
+    record(kind, 'upsert', profile, row);
   }
 }
 
-function remove(list, keys, profile, keyFields) {
+function remove(list, keys, profile, keyFields, kind) {
   for (const key of keys) {
     const match = (r) => r.profile_id === profile && keyFields.every((k) => (typeof key === 'string' ? r[k] === key : (r[k] ?? null) === (key[k] ?? null)));
     for (let i = list.length - 1; i >= 0; i--) if (match(list[i])) list.splice(i, 1);
+    record(kind, 'delete', profile, typeof key === 'string' ? { [keyFields[0]]: key } : key);
   }
 }
 
@@ -79,12 +94,18 @@ const rpcs = {
     db.addons = db.addons.filter((r) => r.profile_id !== p.p_profile_id).concat(p.p_addons.map((a) => ({ ...a, profile_id: p.p_profile_id })));
     return null;
   },
-  sync_push_library_items: (p) => upsert(db.library, p.p_items, p.p_profile_id, ['content_id']),
-  sync_delete_library_items: (p) => remove(db.library, p.p_keys, p.p_profile_id, ['content_id']),
-  sync_push_watch_progress: (p) => upsert(db.progress, p.p_entries, p.p_profile_id, ['progress_key']),
-  sync_delete_watch_progress: (p) => remove(db.progress, p.p_keys, p.p_profile_id, ['progress_key']),
-  sync_push_watched_items: (p) => upsert(db.watched, p.p_items, p.p_profile_id, ['content_id', 'season', 'episode']),
-  sync_delete_watched_items: (p) => remove(db.watched, p.p_keys, p.p_profile_id, ['content_id', 'season', 'episode']),
+  sync_push_library_items: (p) => upsert(db.library, p.p_items, p.p_profile_id, ['content_id'], 'library'),
+  sync_delete_library_items: (p) => remove(db.library, p.p_keys, p.p_profile_id, ['content_id'], 'library'),
+  sync_push_watch_progress: (p) => upsert(db.progress, p.p_entries, p.p_profile_id, ['progress_key'], 'progress'),
+  sync_delete_watch_progress: (p) => remove(db.progress, p.p_keys, p.p_profile_id, ['progress_key'], 'progress'),
+  sync_push_watched_items: (p) => upsert(db.watched, p.p_items, p.p_profile_id, ['content_id', 'season', 'episode'], 'watched'),
+  sync_delete_watched_items: (p) => remove(db.watched, p.p_keys, p.p_profile_id, ['content_id', 'season', 'episode'], 'watched'),
+  sync_get_library_delta_cursor: (p) => cursorOf('library', p.p_profile_id),
+  sync_get_watch_progress_delta_cursor: (p) => cursorOf('progress', p.p_profile_id),
+  sync_get_watched_items_delta_cursor: (p) => cursorOf('watched', p.p_profile_id),
+  sync_pull_library_delta: (p) => changesSince('library', p),
+  sync_pull_watch_progress_delta: (p) => changesSince('progress', p),
+  sync_pull_watched_items_delta: (p) => changesSince('watched', p),
 };
 
 http.createServer(async (req, res) => {
@@ -111,10 +132,17 @@ http.createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
     return res.end('Approved. Go back to the app.');
   }
+  if (path === '/simulate') {
+    // Another device: saves a title to the library and unmarks Breaking Bad S1E1 as watched.
+    upsert(db.library, [{ content_id: 'tt0111161', content_type: 'movie', name: 'The Shawshank Redemption', poster: 'https://images.metahub.space/poster/medium/tt0111161/img', poster_shape: 'POSTER', added_at: Date.now() }], 1, ['content_id'], 'library');
+    remove(db.watched, [{ content_id: 'tt0903747', season: 1, episode: 1 }], 1, ['content_id', 'season', 'episode'], 'watched');
+    res.writeHead(200, { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*' });
+    return res.end('Simulated a change from another device.');
+  }
   if (path === '/ratelimit') {
     // Test the app's backoff: the next N API requests get "429, retry after 2 seconds".
     rateLimited = Number(url.searchParams.get('count') || 3);
-    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.writeHead(200, { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*' });
     return res.end(`Next ${rateLimited} requests will be rate limited.`);
   }
   if (req.headers.apikey !== KEY) return send(401, { message: 'Invalid API key' });
@@ -143,7 +171,8 @@ http.createServer(async (req, res) => {
     const anonymous = name === 'start_device_login_session' || name === 'poll_tv_login_session';
     if (!anonymous && !user) return send(401, { message: 'JWT expired' });
     if (!rpcs[name]) return send(404, { message: `Unknown function ${name}` });
-    return send(200, rpcs[name](json) ?? null);
+    const result = rpcs[name](json);
+    return send(200, result === undefined ? null : result);
   }
   if (path === '/rest/v1/addons') {
     if (!user) return send(401, { message: 'JWT expired' });

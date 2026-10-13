@@ -36,7 +36,7 @@ export function accountPage() {
           onClick: async () => {
             toast('Syncing…');
             try {
-              await pullAll();
+              await pullAll({ full: true });
               toast('Synced', { kind: 'success' });
             } catch (error) {
               toast(`Sync failed: ${error.message}`, { kind: 'error' });

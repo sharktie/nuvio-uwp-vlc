@@ -3,13 +3,15 @@
 // include a server to use by default (web/js/config.js); otherwise a self-hosted Nuvio server is
 // found from its address (/.well-known/nuvio), or its URL and publishable key are entered directly.
 //
-// Like Nuvio's own apps, this stays gentle with the server: progress goes up at most once a minute
-// while playing (straight away on pause or stop), and a "too many requests" answer pauses all
-// requests for as long as the server asks (NuvioMobile core/network/BackendRateLimit.kt).
+// Like Nuvio's own apps, this stays gentle with the server: after a first full download only
+// changes are fetched (each collection keeps a cursor, the last server event it has seen),
+// progress goes up at most once a minute while playing (straight away on pause or stop), and a
+// "too many requests" answer pauses all requests for as long as the server asks
+// (NuvioMobile core/network/BackendRateLimit.kt, features/library/sync/LibrarySyncPaging.kt).
 
 import { requestJson, HttpError } from '../core/http.js';
 import config from '../config.js';
-import { events, storage } from '../core/store.js';
+import { events, storage, profileKey } from '../core/store.js';
 import { bridge } from '../core/bridge.js';
 import { listAddons, replaceAddons, addonName } from './addons.js';
 import { libraryItems, replaceLibrary } from './library.js';
@@ -212,6 +214,7 @@ export async function signOut() {
   }
   storage.set(SESSION_KEY, undefined);
   storage.set('profiles', undefined);
+  storage.set(profileKey('syncCursors'), undefined);
   clearInterval(pullTimer);
   events.emit('account', { signedOut: true });
 }
@@ -296,34 +299,105 @@ function addonsProfileIndex() {
 
 async function afterSignIn() {
   await pullProfiles().catch(() => {});
-  await pullAll();
+  await pullAll({ full: true });
   startBackgroundSync();
 }
 
 /** Replaces local addons, library, progress and watched marks with the account's. */
-export async function pullAll() {
+const PAGE = 500;
+
+// Each synced collection: how to download it whole, how to fetch changes since a cursor, and how
+// to apply either.
+const COLLECTIONS = {
+  library: {
+    cursor: 'sync_get_library_delta_cursor',
+    delta: 'sync_pull_library_delta',
+    snapshot: (profile) => pullPaged((limit, offset) => rpc('sync_pull_library', { p_profile_id: profile, p_limit: limit, p_offset: offset })),
+    applySnapshot: (rows) => replaceLibrary(rows.map(libraryFromRow)),
+    applyDelta: (upserts, deletes) => {
+      const items = new Map(libraryItems().map((item) => [item.id, item]));
+      for (const row of upserts) items.set(row.content_id, libraryFromRow(row));
+      for (const row of deletes) items.delete(row.content_id);
+      replaceLibrary([...items.values()]);
+    },
+  },
+  progress: {
+    cursor: 'sync_get_watch_progress_delta_cursor',
+    delta: 'sync_pull_watch_progress_delta',
+    snapshot: (profile) => rpc('sync_pull_watch_progress', { p_profile_id: profile }),
+    applySnapshot: (rows) => mergeProgress(rows),
+    applyDelta: (upserts, deletes) => mergeProgress(upserts, deletes.map((row) => row.progress_key)),
+  },
+  watched: {
+    cursor: 'sync_get_watched_items_delta_cursor',
+    delta: 'sync_pull_watched_items_delta',
+    snapshot: (profile) => pullPaged((limit, offset) => rpc('sync_pull_watched_items', { p_profile_id: profile, p_page: offset / limit + 1, p_page_size: limit })),
+    applySnapshot: (rows) => mergeWatched(rows),
+    applyDelta: (upserts, deletes) => mergeWatched(upserts, deletes),
+  },
+};
+
+/**
+ * Brings this device up to date with the account. The first time (or with full) each collection
+ * is downloaded whole, noting the server's cursor first so nothing that happens meanwhile is
+ * missed; after that only the changes since the cursor are fetched.
+ */
+export async function pullAll({ full = false } = {}) {
   if (!isSignedIn()) return;
   const profile = activeProfileIndex();
-  const [addonRows, library, progress, watched] = await Promise.all([
-    select('addons', `select=url,name,enabled,sort_order&profile_id=eq.${addonsProfileIndex()}&order=sort_order.asc`).catch(() => null),
-    pullPaged((limit, offset) => rpc('sync_pull_library', { p_profile_id: profile, p_limit: limit, p_offset: offset })).catch(() => null),
-    rpc('sync_pull_watch_progress', { p_profile_id: profile }).catch(() => null),
-    pullPaged((limit, offset) => rpc('sync_pull_watched_items', { p_profile_id: profile, p_page: offset / limit + 1, p_page_size: limit })).catch(() => null),
-  ]);
+  const cursors = { ...storage.get(profileKey('syncCursors'), {}) };
+  const addonRows = await select('addons', `select=url,name,enabled,sort_order&profile_id=eq.${addonsProfileIndex()}&order=sort_order.asc`).catch(() => null);
   applyingRemote = true;
   try {
     if (addonRows && addonRows.length) {
       const seen = new Set();
       await replaceAddons(addonRows.filter((r) => r.url && !seen.has(r.url) && seen.add(r.url)).map((r) => ({ url: r.url, enabled: r.enabled !== false })));
     }
-    if (library) replaceLibrary(library.map(libraryFromRow));
-    if (progress) mergeProgress(progress);
-    if (watched) mergeWatched(watched);
+    for (const [name, collection] of Object.entries(COLLECTIONS)) {
+      try {
+        if (full || cursors[name] == null) {
+          cursors[name] = await pullSnapshot(collection, profile);
+        } else {
+          try {
+            cursors[name] = await pullChanges(collection, profile, cursors[name]);
+          } catch (error) {
+            if (error instanceof HttpError && error.status === 429) throw error;
+            // The server no longer has changes that far back, or something else went wrong:
+            // start again from a full download.
+            console.warn(`Change sync for ${name} failed, downloading it whole`, error);
+            cursors[name] = await pullSnapshot(collection, profile);
+          }
+        }
+      } catch (error) {
+        console.warn(`Syncing ${name} failed`, error);
+      }
+    }
   } finally {
     applyingRemote = false;
   }
+  storage.set(profileKey('syncCursors'), cursors);
   storage.set('lastSync', Date.now());
   events.emit('account', { synced: true });
+}
+
+async function pullSnapshot(collection, profile) {
+  const cursor = Number(await rpc(collection.cursor, { p_profile_id: profile })) || 0;
+  collection.applySnapshot((await collection.snapshot(profile)) || []);
+  return cursor;
+}
+
+async function pullChanges(collection, profile, since) {
+  let cursor = Number(since) || 0;
+  for (let page = 0; page < 40; page++) {
+    const rows = (await rpc(collection.delta, { p_profile_id: profile, p_since_event_id: cursor, p_limit: PAGE })) || [];
+    if (!rows.length) break;
+    const upserts = rows.filter((r) => String(r.operation).toLowerCase() !== 'delete');
+    const deletes = rows.filter((r) => String(r.operation).toLowerCase() === 'delete');
+    collection.applyDelta(upserts, deletes);
+    cursor = Math.max(cursor, ...rows.map((r) => Number(r.event_id) || 0));
+    if (rows.length < PAGE) break;
+  }
+  return cursor;
 }
 
 async function pullPaged(fetchPage, limit = 500) {
@@ -373,8 +447,9 @@ function libraryToRow(item) {
 }
 
 // Newer entry wins; local display details (titles, artwork, last stream) are kept.
-function mergeProgress(rows) {
+function mergeProgress(rows, deletedKeys = []) {
   const local = new Map(allProgress().map((e) => [e.key, e]));
+  for (const key of deletedKeys) local.delete(key);
   for (const row of rows) {
     const key = row.progress_key || progressKey(row.content_id, row.season ?? null, row.episode ?? null);
     const mine = local.get(key);
@@ -401,8 +476,9 @@ function epochMs(value) {
   return n < 1e12 ? n * 1000 : n;
 }
 
-function mergeWatched(rows) {
+function mergeWatched(rows, deletedRows = []) {
   const local = new Map(allWatched().map((w) => [`${w.contentId}:${w.season}:${w.episode}`, w]));
+  for (const row of deletedRows) local.delete(`${row.content_id}:${row.season ?? null}:${row.episode ?? null}`);
   for (const row of rows) {
     const item = { contentId: row.content_id, type: row.content_type || null, season: row.season ?? null, episode: row.episode ?? null, watchedAt: epochMs(row.watched_at), title: row.title || '' };
     local.set(`${item.contentId}:${item.season}:${item.episode}`, item);
