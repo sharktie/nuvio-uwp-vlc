@@ -84,6 +84,8 @@ export const DEFAULT_SETTINGS = {
   tmdbApiKey: '',
   // Device
   controllerCursor: false,
+  // Account
+  askProfileAtLaunch: true, // "who's watching" at startup when the account has several profiles
 };
 
 const SETTINGS_KEY = 'settings';

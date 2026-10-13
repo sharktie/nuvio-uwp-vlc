@@ -9,6 +9,10 @@
   let video = null;
   let loadId = null;
   let readySent = false;
+  // ?mockVersion=1.2.5 pretends to be a GitHub build of that version (default: a local build).
+  const appVersion = (location.search.match(/[?&]mockVersion=([\d.]+)/) || [])[1] || '1.2.0';
+  const clock = () => new Date().toTimeString().slice(0, 8) + '.000';
+  const logLines = [`${clock()} Nuvio starting (mock)`, `${clock()} LibVLC 3.0 (mock) ready`];
 
   function ensureVideo() {
     if (video) return video;
@@ -44,10 +48,18 @@
     const v = video;
     switch (message.type) {
       case 'app.hello':
-        emit({ type: 'app.hello', platform: 'xbox', appVersion: 'mock', vlcVersion: '3.0 (mock)', webAppUrl: null, bundled: true });
+        logLines.push(`${clock()} Web app connected`);
+        emit({ type: 'app.hello', platform: 'xbox', appVersion, vlcVersion: '3.0 (mock)', webAppUrl: null, bundled: true });
         break;
       case 'app.log':
         console.log('[native log]', message.message);
+        logLines.push(`${clock()} Web: ${message.message}`);
+        break;
+      case 'app.getLog':
+        emit({ type: 'response', requestId: message.requestId, result: {
+          current: logLines.join('\r\n') + '\r\n',
+          previous: '09:12:01.204 Nuvio starting\r\n09:12:03.880 Playing https://example.com/dl/abc...\r\n09:14:22.017 VLC error: stream ended early, reconnecting (1/5)\r\n',
+        } });
         break;
       case 'player.open':
         loadId = message.id;

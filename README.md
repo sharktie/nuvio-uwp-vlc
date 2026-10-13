@@ -9,7 +9,7 @@ Nuvio has no web or Xbox version, so this project is a Nuvio client written as a
 ## Features
 - **Nuvio's layout for the TV**: Home with featured titles, Continue Watching (with Next Up) and your addons' catalogs; Search; Library; details with seasons and episodes; per-addon stream lists with quality, HDR/DV, audio and size badges.
 - **Stremio addons**: install any addon by its manifest URL (Cinemeta and OpenSubtitles are installed by default), reorder, enable/disable, configure.
-- **Nuvio account sync**: sign in with a code (approve on your phone) or email, pick a profile, and your addons, library, Continue Watching and watched marks sync with your other Nuvio apps. See [Nuvio account](#nuvio-account).
+- **Nuvio account sync**: sign in with a code (approve on your phone) or email, and your addons, library, Continue Watching and watched marks sync with your other Nuvio apps. With several profiles the app asks who's watching when it starts. See [Nuvio account](#nuvio-account).
 - **Built-in debrid**: connect TorBox, Real-Debrid or Premiumize and plain torrent results play too: the service fetches the torrent and the console plays the file it serves.
 - **Player**: VLC with Nuvio-style controls, audio track and subtitle menus, addon subtitles drawn by the app (size, colour, background, position, delay), speed, aspect ratio, switching sources, episode list, resume, and next episode with a countdown (same addon and release group).
 - If a stream's connection drops partway through, playback reconnects and carries on.
@@ -27,7 +27,7 @@ This app is for Xbox consoles in **Developer Mode**, which is how Xbox lets you 
    - Select **Start** and wait for the install to finish.
 5. **Open it.** In Dev Home the app appears as **Nuvio**.
 
-**Updating:** install a newer build the same way. It replaces the old version and keeps your data.
+**Updating:** the app tells you when a new release is out (or check in Settings → About). Install it the same way; it replaces the old version and keeps your sign-in and data. What changed in each release is in [CHANGELOG.md](CHANGELOG.md).
 
 ## Getting streams to play
 - **Debrid addons (recommended):** set up Torrentio, Comet, MediaFusion, AIOStreams or similar with Real-Debrid, AllDebrid, TorBox, Premiumize etc. on their configure page, and install the manifest URL it gives you (Settings → Addons → Install Addon). Their links play straight away.
@@ -36,7 +36,7 @@ This app is for Xbox consoles in **Developer Mode**, which is how Xbox lets you 
 - Torrents can't be streamed on the console itself; without debrid they're hidden (Settings → Playback → Show torrent results lists them anyway).
 
 ## Nuvio account
-Settings → Account → **Sign in with a code** (scan the QR code, or enter the code at the link shown, on your phone or computer) or **Sign in with email**. Your addons, library, Continue Watching and watched marks then sync with your other Nuvio apps; profiles with *uses primary addons* use profile 1's addons, and PIN-locked profiles ask for the PIN.
+Settings → Account → **Sign in with a code** (scan the QR code, or enter the code at the link shown, on your phone or computer) or **Sign in with email**. Your addons, library, Continue Watching and watched marks then sync with your other Nuvio apps. If the account has several profiles, the app asks who's watching each time it starts (Settings → Account → Ask who's watching turns this off); PIN-locked profiles ask for the PIN, and profiles with *uses primary addons* use profile 1's addons.
 
 Which Nuvio server the app signs in to:
 - **Built in:** a build can include a server, so sign-in needs no setup. Nothing private is committed to this repository; the server's details go in `web/js/config.local.js` (ignored by git):
@@ -64,7 +64,7 @@ Sync is gentle with the server, like Nuvio's own apps: progress goes up at most 
 A USB keyboard works too (arrows, Enter, Escape/Backspace, Space).
 
 ## Troubleshooting
-The app writes a log you can download from the Device Portal: **File explorer → LocalAppData →** the Nuvio package folder (`b7f0f2ee-…`) **→ LocalState → `nuvio-vlc.log`**. Include it when reporting a problem.
+The app keeps a log of starting up and playing: read it on the TV in **Settings → About → View log** (this session and the last one). To copy the whole file, download it from the Device Portal: **File explorer → LocalAppData →** the Nuvio package folder (`b7f0f2ee-…`) **→ LocalState → `nuvio-vlc.log`**. Include it when reporting a problem.
 
 Known limitations:
 - Subtitle styling applies to addon subtitles; subtitles built into the video file use VLC's default style.
@@ -87,7 +87,9 @@ Then open http://localhost:8080. In a browser the player uses `<video>` (MP4/Web
 - **Account sync without a real server:** `node tools/dev-sync-server.mjs` is an in-memory stand-in for a Nuvio server. Connect to `http://localhost:7002` as a self-hosted server; sign in with `test@example.com` / `test`, or with a code approved at `http://localhost:7002/approve?code=…`. Opening `http://localhost:7002/ratelimit?count=3` makes the next three requests fail with "429, retry after 2 seconds", to try the backoff.
 
 ## Building
-Every push builds signed packages with GitHub Actions (`.github/workflows/build.yml`), and pushing a tag such as `v1.0.0` publishes a release. To build locally you need Visual Studio 2022 with the **Universal Windows Platform development** workload: open `NuvioUWP.sln` and build `Release | x64` (or run the `msbuild` command from the workflow).
+Every push builds signed packages with GitHub Actions (`.github/workflows/build.yml`), and pushing a tag such as `v1.2.0` publishes a release.
+
+Versions: the major and minor version come from `Nuvio/Package.appxmanifest` and the third number is the build's run number, so every GitHub build installs over the last. To release, set the manifest's version (e.g. `1.3.0.0`), add a `## v1.3.0` section to `CHANGELOG.md` (it becomes the release notes and the app's "What's new"), and push the tag `v1.3.0`. Builds from Visual Studio keep 0 as the third number; the app calls them developer builds and doesn't offer updates. To build locally you need Visual Studio 2022 with the **Universal Windows Platform development** workload: open `NuvioUWP.sln` and build `Release | x64` (or run the `msbuild` command from the workflow).
 
 ### Deploy from Visual Studio to the Xbox
 Visual Studio can install and debug the app on a Dev Mode Xbox directly:

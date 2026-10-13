@@ -1,13 +1,16 @@
 import { h, clear, append } from '../core/dom.js';
 import { qrSvg } from '../core/qr.js';
 import { focus } from '../core/focus.js';
-import { events, storage } from '../core/store.js';
+import { events, storage, settings } from '../core/store.js';
 import {
   getServer, setServer, discoverServer, manualServer, getSession, isSignedIn, signInWithEmail, signInWithCode,
-  signOut, pullAll, pullProfiles, cachedProfiles, activeProfileIndex, switchProfile, verifyProfilePin, officialServer,
+  signOut, pullAll, pullProfiles, cachedProfiles, activeProfileIndex, switchProfile, officialServer,
 } from '../services/account.js';
 import { importFromStremio } from '../services/stremio.js';
-import { settingRow, button, promptDialog, confirmDialog, toast, openDialog, spinner, choicePanel } from '../components/ui.js';
+import { profileName, profileAvatar, unlockProfile, rememberProfilePicked } from './profiles.js';
+import {
+  settingRow, toggleRow, button, promptDialog, confirmDialog, toast, openDialog, spinner, choicePanel,
+} from '../components/ui.js';
 
 /** Settings > Account: connect a Nuvio server, sign in, profiles and sync. */
 export function accountPage() {
@@ -44,6 +47,12 @@ export function accountPage() {
           },
         }),
         profileRow(),
+        cachedProfiles().length > 1 ? toggleRow({
+          label: 'Ask who\'s watching',
+          description: 'Choose a profile each time Nuvio starts',
+          get: () => settings.get('askProfileAtLaunch'),
+          set: (v) => settings.set('askProfileAtLaunch', v),
+        }) : null,
         settingRow({
           label: 'Sign out',
           description: 'Your addons and library stay on this device',
@@ -103,8 +112,9 @@ export function accountPage() {
     return settingRow({
       label: 'Profile',
       description: 'Each profile has its own addons, library and progress',
-      icon: 'person',
-      value: active ? active.name : `Profile ${activeProfileIndex()}`,
+      icon: 'people',
+      value: active ? profileName(active) : `Profile ${activeProfileIndex()}`,
+      control: active ? profileAvatar(active, 'profile-avatar-small') : null,
       onClick: chooseProfile,
     });
   }
@@ -117,27 +127,15 @@ export function accountPage() {
     const choice = await choicePanel({
       title: 'Switch profile',
       items: profiles.map((p) => ({
-        label: p.name || `Profile ${p.profile_index}`,
+        label: profileName(p),
         description: [p.pin_enabled ? 'PIN locked' : null, p.uses_primary_addons ? 'Uses the main profile\'s addons' : null].filter(Boolean).join(' · ') || null,
         value: p,
         selected: p.profile_index === activeProfileIndex(),
       })),
     });
     if (!choice || choice.profile_index === activeProfileIndex()) return;
-    if (choice.pin_enabled) {
-      const pin = await promptDialog({ title: `PIN for ${choice.name}`, label: 'PIN', kind: 'password', confirmLabel: 'Unlock' });
-      if (!pin) return;
-      try {
-        const result = await verifyProfilePin(choice.profile_index, pin);
-        if (!result.unlocked) {
-          toast(result.message || (result.retryAfter ? `Too many tries. Wait ${result.retryAfter}s.` : 'Wrong PIN'), { kind: 'error' });
-          return;
-        }
-      } catch (error) {
-        toast(`Couldn't check the PIN: ${error.message}`, { kind: 'error' });
-        return;
-      }
-    }
+    if (!await unlockProfile(choice)) return;
+    rememberProfilePicked();
     switchProfile(choice.profile_index);
   }
 

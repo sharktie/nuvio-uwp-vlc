@@ -11,8 +11,10 @@ import { LANGUAGE_CHOICES } from '../services/subtitles.js';
 import { accountPage } from './account.js';
 import config from '../config.js';
 import { DEBRID_PROVIDERS, debridAccount, setDebridAccount, validateDebridKey } from '../services/debrid.js';
+import { installKind, checkForUpdate, lastUpdateCheck } from '../services/updates.js';
+import { showUpdateDialog } from '../components/update.js';
 import {
-  settingRow, toggleRow, button, choicePanel, promptDialog, confirmDialog, toast, emptyState,
+  settingRow, toggleRow, button, chip, choicePanel, promptDialog, confirmDialog, toast, emptyState, spinner,
 } from '../components/ui.js';
 
 const SECTIONS = [
@@ -65,6 +67,7 @@ function sectionView(id) {
     case 'integrations': return integrationsPage();
     case 'device': return devicePage();
     case 'about': return aboutPage();
+    case 'log': return logPage();
     case 'account': return accountPage();
     default: return page('Settings', emptyState({ title: 'Not found', message: 'That settings page does not exist.' }));
   }
@@ -395,19 +398,126 @@ function devicePage() {
 // ---------- About ----------
 
 function aboutPage() {
+  const kind = installKind();
+  const device = { xbox: 'Xbox', desktop: 'Windows' }[bridge.platform] || 'Browser';
   const facts = [
-    ['Nuvio web app', '1.0.0'],
-    ['App', bridge.native ? (bridge.appVersion || 'unknown') + ` (${bridge.platform})` : 'Browser'],
+    ['Version', bridge.native ? (bridge.appVersion || 'unknown') + (kind === 'dev' ? ' (developer build)' : '') : 'Web'],
+    ['Device', device],
     ['Video player', bridge.native ? (bridge.vlcVersion ? `LibVLC ${bridge.vlcVersion}` : 'VLC (starting…)') : 'Browser <video>'],
+    bridge.native ? ['Web app', bridge.bundled ? 'Built in' : bridge.webAppUrl] : null,
     ['Addons', String(listAddons().length)],
-  ];
+  ].filter(Boolean);
   return page('About',
     h('div', { class: 'about-card' },
       img('assets/wordmark.png', { class: 'about-wordmark', alt: 'Nuvio', loading: 'eager' }),
       h('p', null, 'An unofficial Nuvio client for Xbox and the web, with VLC built in so MKV, HEVC, Dolby Vision/HDR and lossless audio streams from debrid services play directly.'),
       h('dl', { class: 'about-facts' }, facts.map(([k, v]) => [h('dt', null, k), h('dd', null, v)]))),
+    kind ? updatesRow(kind) : null,
+    bridge.native ? settingRow({
+      label: 'View log',
+      description: 'What the app recorded while starting and playing, for reporting a problem',
+      icon: 'article',
+      control: icon('chevron-right', 'setting-chevron'),
+      onClick: () => router.go('settings/log'),
+    }) : null,
     settingRow({ label: 'Licences', description: 'GPL-3.0. Based on Nuvio (NuvioMedia) and Stremio UWP; video by LibVLC (LGPL-2.1).', icon: 'info' }),
     h('p', { class: 'settings-hint' }, 'Not affiliated with NuvioMedia, Stremio or VideoLAN. Bring your own sources: Nuvio does not host or provide any content.'));
 }
 
+function updatesRow(kind) {
+  if (kind === 'dev') {
+    return settingRow({
+      label: 'Updates',
+      description: 'This copy was deployed from Visual Studio, so it doesn\'t check for releases.',
+      icon: 'download',
+      value: 'Developer build',
+    });
+  }
+  const last = lastUpdateCheck();
+  const release = last && last.release;
+  const row = settingRow({
+    label: release && release.newer ? `Update available: ${release.version}` : 'Check for updates',
+    description: last
+      ? `${release.newer ? 'Select for how to install it.' : 'You have the latest version.'} Checked ${new Date(last.checkedAt).toLocaleString()}.`
+      : 'Looks for a newer release on GitHub',
+    icon: 'download',
+    value: release ? (release.newer ? 'New' : 'Up to date') : null,
+    onClick: async () => {
+      toast('Checking for updates…');
+      try {
+        const latest = await checkForUpdate({ force: true });
+        const again = updatesRow(kind);
+        row.replaceWith(again);
+        focus.set(again);
+        showUpdateDialog(latest);
+      } catch (error) {
+        toast(`Couldn't check: ${error.message}`, { kind: 'error' });
+      }
+    },
+  });
+  return row;
+}
 
+// ---------- Log ----------
+
+const LOG_CHUNK_LINES = 8;
+
+/** The native app's log, readable on the TV (it's also a file in LocalState). */
+function logPage() {
+  const lines = h('div', { class: 'log-lines' });
+  let which = 'current';
+  let logs = null;
+  const tabs = {
+    current: chip('This session', { selected: true, onClick: () => show('current') }),
+    previous: chip('Last session', { onClick: () => show('previous') }),
+  };
+  const el = h('div', { class: 'settings-page' }, h('div', { class: 'view-scroll', 'data-scroll-y': '' },
+    h('h1', { class: 'page-title' }, 'Log'),
+    h('div', { class: 'settings-list' },
+      h('p', { class: 'settings-hint' }, 'Links are shortened, so no account tokens appear here. To copy the whole file, open the Device Portal on a PC: File explorer → LocalAppData → the Nuvio package → LocalState → nuvio-vlc.log.'),
+      h('div', { class: 'settings-actions', 'data-nav-group': '' },
+        tabs.current, tabs.previous,
+        button('Refresh', { icon: 'refresh', onClick: () => load() }),
+        button('Jump to end', { icon: 'arrow-down', onClick: () => {
+          const chunks = lines.querySelectorAll('.log-chunk');
+          if (chunks.length) focus.set(chunks[chunks.length - 1]);
+        } })),
+      lines)));
+
+  function show(name) {
+    which = name;
+    for (const [key, el] of Object.entries(tabs)) el.classList.toggle('selected', key === name);
+    render();
+  }
+
+  function render() {
+    clear(lines);
+    const text = logs && logs[which];
+    if (!text) {
+      lines.appendChild(emptyState({ icon: 'article', title: 'Nothing logged', message: which === 'previous' ? 'There is no log from an earlier session.' : 'Nothing has been written yet.' }));
+      return;
+    }
+    const all = text.replace(/\s+$/, '').split(/\r?\n/);
+    for (let i = 0; i < all.length; i += LOG_CHUNK_LINES) {
+      // Chunks of lines are what the highlight moves through, so the D-pad scrolls the log.
+      lines.appendChild(h('div', { class: 'log-chunk focusable' }, all.slice(i, i + LOG_CHUNK_LINES).map((line) =>
+        h('div', { class: ['log-line', /\b(error|failed|exception|crash)/i.test(line) && 'log-error'] }, line))));
+    }
+  }
+
+  async function load() {
+    clear(lines).appendChild(spinner());
+    try {
+      logs = await bridge.request('app.getLog', {}, 10000);
+    } catch (error) {
+      logs = null;
+      clear(lines).appendChild(emptyState({ icon: 'warning', title: 'Couldn\'t read the log', message: error.message }));
+      return;
+    }
+    render();
+  }
+
+  if (bridge.native) load();
+  else lines.appendChild(emptyState({ icon: 'article', title: 'No log here', message: 'The Xbox and Windows app keep a log; in a browser, use the developer tools console.' }));
+  return el;
+}

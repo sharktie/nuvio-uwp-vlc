@@ -17,9 +17,10 @@ jobs:
           node-version: 22
       - name: Syntax check
         run: |
-          # The web app has no build step; make sure every module at least parses.
-          find web/js tools -name '*.js' -o -name '*.mjs' | while read -r file; do
-            node --check "$file" || exit 1
+          # The web app has no build step; make sure every module at least parses. Parsed from
+          # stdin as modules, since `node --check file.js` can pass a broken file it can't classify.
+          find web/js web/dev tools -name '*.js' -o -name '*.mjs' | while read -r file; do
+            node --input-type=module --check < "$file" || { echo "::error file=$file::Syntax error"; exit 1; }
           done
           echo "$(find web/js -name '*.js' | wc -l) web modules OK"
 
@@ -46,10 +47,15 @@ jobs:
         run: |
           $manifest = Resolve-Path 'Nuvio\Package.appxmanifest'
           [xml]$xml = Get-Content $manifest -Raw
-          # Always increasing, so a newer build installs over an older one.
-          $xml.Package.Identity.Version = "1.0.$env:GITHUB_RUN_NUMBER.0"
+          # Major and minor from the manifest, then the run number: always increasing, so a newer
+          # build installs over an older one. Local builds keep 0 there, which the app treats as a
+          # developer build that doesn't look for updates.
+          $base = [version]$xml.Package.Identity.Version
+          $version = "$($base.Major).$($base.Minor).$env:GITHUB_RUN_NUMBER.0"
+          $xml.Package.Identity.Version = $version
           $xml.Save($manifest)
-          "Version: $($xml.Package.Identity.Version)"
+          "PACKAGE_VERSION=$version" >> $env:GITHUB_ENV
+          "Version: $version"
 
       - name: Create signing certificate
         shell: pwsh
@@ -165,8 +171,22 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
+          $tag = $env:GITHUB_REF_NAME
+          $parts = $env:PACKAGE_VERSION.Split('.')
+          if ($tag -match '^v(\d+)\.(\d+)' -and "$($Matches[1]).$($Matches[2])" -ne "$($parts[0]).$($parts[1])") {
+            throw "Tag $tag doesn't match version $($parts[0]).$($parts[1]) in Nuvio\Package.appxmanifest. Update the manifest's Version and tag again."
+          }
           Compress-Archive -Path release\* -DestinationPath NuvioUWPVLC-x64.zip
-          $notes = "Nuvio for Xbox Developer Mode with VLC built in.`n`n" +
-            "Download **NuvioUWPVLC-x64.zip** and unzip it. It contains the app (.msix) and a Dependencies folder with the 5 dependency packages (.appx). " +
-            "Install steps are in the README: upload the .msix in the Xbox Device Portal, then add the 5 files from Dependencies."
-          gh release create $env:GITHUB_REF_NAME NuvioUWPVLC-x64.zip --title "Nuvio UWP VLC $env:GITHUB_REF_NAME" --notes $notes
+          # The app reads "What's new" and "Package version" from these notes for its update notice.
+          $changes = [regex]::Match((Get-Content CHANGELOG.md -Raw -Encoding utf8), '(?ms)^## ' + [regex]::Escape($tag) + '[ \t]*\r?\n(.*?)(?=^## |\z)')
+          $notes = @("Nuvio for Xbox Developer Mode with VLC built in.", '')
+          if ($changes.Success) { $notes += @("## What's new", $changes.Groups[1].Value.Trim(), '') }
+          $notes += @(
+            '## Install',
+            'Download **NuvioUWPVLC-x64.zip** and unzip it. It contains the app (.msix) and a Dependencies folder with the 5 dependency packages (.appx).',
+            'Install steps are in the README: upload the .msix in the Xbox Device Portal, then add the 5 files from Dependencies. Installing over an earlier version keeps your sign-in and data.',
+            '',
+            "Package version: $($parts[0..2] -join '.')")
+          $notes -join "`n" | Set-Content release-notes.md -Encoding utf8
+          Get-Content release-notes.md
+          gh release create $tag NuvioUWPVLC-x64.zip --title "Nuvio UWP VLC $tag" --notes-file release-notes.md

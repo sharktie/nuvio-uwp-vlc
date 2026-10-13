@@ -6,7 +6,10 @@ import { events, settings } from './core/store.js';
 import { sidebar } from './components/sidebar.js';
 import { toast } from './components/ui.js';
 import { ensureDefaultAddons, refreshStaleManifests } from './services/addons.js';
-import { initAccountSync } from './services/account.js';
+import { initAccountSync, activeProfileIndex, switchProfile } from './services/account.js';
+import { checkForUpdate, shouldAnnounce, markAnnounced } from './services/updates.js';
+import { showUpdateDialog } from './components/update.js';
+import { shouldAskProfile, whoIsWatching } from './views/profiles.js';
 import { homeView } from './views/home.js';
 import { searchView } from './views/search.js';
 import { libraryView } from './views/library.js';
@@ -52,6 +55,28 @@ function onBack() {
   toast('Press back again to exit');
 }
 
+function hideSplash() {
+  const splash = document.getElementById('splash');
+  if (!splash) return;
+  splash.id = '';
+  splash.classList.add('hide');
+  setTimeout(() => splash.remove(), 400);
+}
+
+// Once per new release, a few seconds after startup (and not over the player or a dialog).
+async function announceUpdate() {
+  try {
+    const release = await checkForUpdate();
+    if (!shouldAnnounce(release)) return;
+    if (document.querySelector('.overlay, .profile-picker') || (router.current && router.current.route.name === 'player')) return;
+    markAnnounced(release);
+    bridge.log(`Update available: ${release.version}`);
+    showUpdateDialog(release);
+  } catch (error) {
+    console.warn('Update check failed', error);
+  }
+}
+
 async function boot() {
   const views = h('main', { class: 'views' });
   const shell = h('div', { id: 'app', class: 'shell' }, sidebar(), views);
@@ -67,6 +92,15 @@ async function boot() {
   if (bridge.native && settings.get('controllerCursor')) bridge.send('app.pointer', { enabled: true });
   events.on('nav:back', onBack);
 
+  if (shouldAskProfile()) {
+    hideSplash();
+    const chosen = await whoIsWatching();
+    if (chosen !== activeProfileIndex()) {
+      switchProfile(chosen);
+      return;
+    }
+  }
+
   try {
     await ensureDefaultAddons();
   } catch (error) {
@@ -76,12 +110,9 @@ async function boot() {
   refreshStaleManifests();
   initAccountSync();
 
-  const splash = document.getElementById('splash');
-  if (splash) {
-    splash.classList.add('hide');
-    setTimeout(() => splash.remove(), 400);
-  }
-  bridge.log(`Web app ready (${bridge.platform})`);
+  hideSplash();
+  bridge.log(`Web app ready (${bridge.platform}${bridge.appVersion ? ' ' + bridge.appVersion : ''})`);
+  setTimeout(announceUpdate, 6000);
 }
 
 window.addEventListener('error', (e) => bridge.log(`Error: ${e.message} at ${e.filename}:${e.lineno}`));

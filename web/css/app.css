@@ -458,6 +458,48 @@ html.pointer .setting-row:hover:not(.focused) { background: var(--surface-2); }
 .code-qr svg { width: 100%; height: 100%; display: block; }
 .code-value { font-size: 3.4rem; font-weight: 800; letter-spacing: .3rem; color: var(--text); padding: .6rem 1.6rem; border-radius: .8rem; background: var(--surface-2); }
 
+/* ---------- Who's watching ---------- */
+.profile-picker {
+  position: fixed; inset: 0; z-index: 45; background: radial-gradient(ellipse at 50% 30%, #1a2236 0%, var(--bg) 65%);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2.4rem;
+  opacity: 0; transition: opacity .25s;
+}
+.profile-picker.show { opacity: 1; }
+.profile-wordmark { height: 3.4rem; width: auto; }
+.profile-picker h1 { font-size: 2.6rem; font-weight: 700; }
+.profile-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 2.4rem; max-width: 90vw; padding: 1rem; }
+.profile-tile {
+  display: flex; flex-direction: column; align-items: center; gap: .9rem; width: 12rem; padding: 1rem .5rem;
+  border-radius: 1rem; color: var(--text-2); transition: transform .15s var(--ease), color .15s;
+}
+.profile-tile .profile-avatar { width: 9rem; height: 9rem; font-size: 3.6rem; box-shadow: 0 0 0 .3rem transparent; transition: box-shadow .15s; }
+.profile-tile.focused { transform: scale(1.08); color: var(--text); }
+.profile-tile.focused .profile-avatar { box-shadow: 0 0 0 .3rem #fff; }
+.profile-name { font-size: 1.3rem; font-weight: 600; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.profile-lock { display: flex; align-items: center; gap: .3rem; font-size: .9rem; color: var(--muted); }
+.profile-lock .icon { width: 1rem; height: 1rem; }
+.profile-avatar {
+  display: inline-flex; align-items: center; justify-content: center; flex: none; border-radius: 50%;
+  color: #fff; font-weight: 700; text-shadow: 0 .1rem .3rem rgba(0, 0, 0, .3);
+}
+.profile-avatar-small { width: 2.2rem; height: 2.2rem; font-size: 1rem; margin-left: .6rem; }
+html.pointer .profile-tile:hover:not(.focused) { color: var(--text); }
+
+/* ---------- Updates and log ---------- */
+.update-dialog { display: flex; flex-direction: column; gap: 1.4rem; }
+.update-notes h3 { font-size: 1.1rem; margin-bottom: .5rem; }
+.update-notes ul { margin: 0; padding-left: 1.4rem; color: var(--text-2); display: flex; flex-direction: column; gap: .3rem; }
+.update-dialog .code-qr { width: 12rem; height: 12rem; }
+.update-dialog .code-link { font-size: 1.2rem; word-break: break-all; }
+.log-lines { display: flex; flex-direction: column; gap: .2rem; margin-top: .6rem; padding-bottom: 4rem; }
+.log-chunk {
+  padding: .5rem .9rem; border-radius: var(--radius-sm); border-left: .25rem solid transparent;
+  font: .95rem/1.45 "Cascadia Mono", Consolas, ui-monospace, monospace; color: var(--text-2);
+}
+.log-chunk.focused { background: var(--surface-2); border-left-color: var(--accent-strong); color: var(--text); }
+.log-line { white-space: pre-wrap; word-break: break-all; }
+.log-error { color: #ff8a8e; }
+
 /* ---------- Overlays: dialogs and side panels ---------- */
 .overlay {
   position: fixed; inset: 0; z-index: 50; background: rgba(0, 0, 0, .6);

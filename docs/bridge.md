@@ -22,6 +22,7 @@ for development.
 | `app.pointer` | `enabled` | Turns the console's mouse-mode cursor on or off (off by default). |
 | `app.setWebAppUrl` | `url` (or null) | Loads the web app from that address from now on (development), or the built-in copy for null. Reloads. |
 | `app.exit` | | Closes the app. |
+| `app.getLog` | `requestId` | Answered with `response`: `result` is `{ current, previous }`, the end of this session's log and the last session's (empty strings if there's none). |
 | `net.fetch` | `requestId`, `url`, `method`, `headers`, `body` | HTTP request without the browser's CORS rules (subtitle files, debrid APIs). Answered with `response`: `result` is `{ status, url, headers, bodyBase64 }`, or `error`. Responses over 16 MB are refused. |
 
 ### Player

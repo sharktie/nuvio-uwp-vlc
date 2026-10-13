@@ -231,6 +231,12 @@ namespace Nuvio.Bridge
                 case "net.fetch":
                     Fetch(message);
                     break;
+                case "app.getLog":
+                    var log = new JsonObject();
+                    log.SetNamedValue("current", JsonValue.CreateStringValue(Log.ReadRecent(false, 200000)));
+                    log.SetNamedValue("previous", JsonValue.CreateStringValue(Log.ReadRecent(true, 100000)));
+                    Respond(GetString(message, "requestId"), log, null);
+                    break;
             }
         }
 
