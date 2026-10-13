@@ -120,4 +120,10 @@
       <TargetedSDKConfiguration>Retail</TargetedSDKConfiguration>
     </SDKReference>
   </ItemGroup>
+  <!-- The package's file list (the .appxrecipe) is only rewritten when MSBuild thinks it's out of
+       date, which misses web files added since the last full build: the app then ships without
+       them and the web app can't start. Rewrite it on every build. -->
+  <Target Name="RefreshPackageFileList" BeforeTargets="BeforeBuild">
+    <Delete Files="$(OutDir)$(TargetName).build.appxrecipe" ContinueOnError="true" />
+  </Target>
 </Project>
