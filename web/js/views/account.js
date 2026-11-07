@@ -64,7 +64,16 @@ export function accountPage() {
     } else {
       add(h('p', { class: 'settings-hint' }, server
         ? 'Sign in with your Nuvio account to bring over the addons, library and progress from your phone or computer, without typing addon links on the TV.'
-        : 'This app has no Nuvio server built in. Connect to a self-hosted Nuvio server, or import your addons and library from a Stremio account below.'));
+        : 'Connect a Nuvio server to sign in and sync your account. Set its address and publishable key below, or discover it from its server address.'));
+      if (!server) {
+        add(settingRow({
+          label: 'Connect to a Nuvio server',
+          description: 'Enter a backend URL and publishable key, or discover a server from its address, to enable sign-in.',
+          icon: 'cloud',
+          value: 'Set up',
+          onClick: chooseServer,
+        }));
+      }
       if (server) {
         add(
           h('h2', { class: 'settings-section' }, 'SIGN IN'),
@@ -81,15 +90,17 @@ export function accountPage() {
             onClick: emailSignIn,
           }) : null);
       }
-      add(
-        h('h2', { class: 'settings-section' }, 'SERVER'),
-        settingRow({
-          label: server ? server.name : 'No server set up',
-          description: server ? (server.official ? 'Built into this app' : server.backendUrl) : 'Connect to a Nuvio server to sign in',
-          icon: 'cloud',
-          value: server ? 'Change' : 'Set up',
-          onClick: chooseServer,
-        }));
+      if (server) {
+        add(
+          h('h2', { class: 'settings-section' }, 'SERVER'),
+          settingRow({
+            label: server.name,
+            description: server.official ? 'Built into this app' : server.backendUrl,
+            icon: 'cloud',
+            value: 'Change',
+            onClick: chooseServer,
+          }));
+      }
     }
     add(
       h('h2', { class: 'settings-section' }, 'STREMIO'),

@@ -21,7 +21,10 @@ export function sidebar() {
           class: 'sidebar-item focusable',
           type: 'button',
           'aria-label': item.label,
-          onClick: () => router.root(item.route),
+          onClick: () => {
+            document.documentElement.classList.remove('sidebar-open');
+            router.root(item.route);
+          },
         }, icon(item.icon), h('span', { class: 'sidebar-label' }, item.label));
         buttons.set(item.route, button);
         return button;
@@ -37,6 +40,7 @@ export function sidebar() {
   });
 
   events.on('route', ({ name }) => {
+    document.documentElement.classList.remove('sidebar-open');
     for (const [route, button] of buttons) button.classList.toggle('active', route === name);
     // Moving left into the rail lands on the current section.
     const active = buttons.get(name);

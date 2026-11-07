@@ -135,7 +135,7 @@ export const focus = {
       (preferred && preferred.isConnected && preferred) ||
       (remembered && remembered.isConnected && isVisible(remembered) && remembered) ||
       [...el.querySelectorAll('.focusable[data-autofocus]')].find(isVisible) ||
-      focusables(el)[0];
+      firstFocusable(el);
     if (target) focus.set(target);
   },
 
@@ -315,6 +315,22 @@ function focusables(root) {
   return [...root.querySelectorAll('.focusable')].filter((el) => !el.disabled && isVisible(el));
 }
 
+function firstFocusable(root) {
+  const candidates = focusables(root);
+  if (!candidates.length) return null;
+  if (document.documentElement.dir !== 'rtl') return candidates[0];
+
+  // In RTL, the first visual item in a row/grid is on the right even when it is
+  // later in DOM order (for example, in a composed view). Start at that edge.
+  const rects = candidates.map((el) => ({ el, rect: el.getBoundingClientRect() }));
+  const top = Math.min(...rects.map(({ rect }) => rect.top));
+  const first = rects.reduce((best, item) => item.rect.top <= top ? item : best);
+  const rowBottom = first.rect.top + Math.max(12, first.rect.height * 0.35);
+  return rects
+    .filter(({ rect }) => rect.top <= rowBottom)
+    .sort((a, b) => b.rect.right - a.rect.right)[0].el;
+}
+
 function findNext(from, direction, root) {
   const a = from.getBoundingClientRect();
   const ax = a.left + a.width / 2;
@@ -393,9 +409,11 @@ function scrollIntoView(el) {
   if (row) {
     const r = row.getBoundingClientRect();
     const e = el.getBoundingClientRect();
-    const pad = parseFloat(getComputedStyle(row).scrollPaddingLeft) || r.width * 0.04;
-    if (e.left < r.left + pad) row.scrollBy({ left: e.left - r.left - pad, behavior: 'smooth' });
-    else if (e.right > r.right - pad) row.scrollBy({ left: e.right - r.right + pad, behavior: 'smooth' });
+    const style = getComputedStyle(row);
+    const padLeft = parseFloat(style.scrollPaddingLeft) || r.width * 0.04;
+    const padRight = parseFloat(style.scrollPaddingRight) || r.width * 0.04;
+    if (e.left < r.left + padLeft) row.scrollBy({ left: e.left - r.left - padLeft, behavior: 'smooth' });
+    else if (e.right > r.right - padRight) row.scrollBy({ left: e.right - r.right + padRight, behavior: 'smooth' });
   }
   // The page: bring the item's section to a steady spot near the top, like a TV home screen.
   const page = el.closest('[data-scroll-y]');

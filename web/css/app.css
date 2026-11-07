@@ -704,3 +704,5 @@ html[dir="rtl"].sidebar-open .sidebar { background: linear-gradient(270deg, rgba
 .player-subs, .sub-line { unicode-bidi: plaintext; }
 
 html[lang="ar"] body { font-family: "Segoe UI", Tahoma, "Noto Sans Arabic", system-ui, sans-serif; }
+
+html[dir="rtl"] .row-track, html[dir="rtl"] .poster-grid { direction: rtl; }
