@@ -18,10 +18,13 @@ function avatarColor(profile) {
   return /^#[0-9a-f]{3,8}$/i.test(profile.avatar_color_hex || '') ? profile.avatar_color_hex : '#2f6fed';
 }
 
-/** A profile's round avatar: its colour and first letter. */
+/** A profile's round avatar, with the name initial visible if its image is missing. */
 export function profileAvatar(profile, cls) {
-  return h('span', { class: ['profile-avatar', cls], style: { background: avatarColor(profile) } },
-    profileName(profile).trim().charAt(0).toUpperCase() || '?');
+  const avatar = profile.avatar_url || profile.avatarUrl || profile.avatar || profile.picture || profile.image;
+  const src = typeof avatar === 'string' ? avatar : avatar && (avatar.url || avatar.src);
+  return h('span', { class: ['profile-avatar', cls], style: { background: avatarColor(profile) }, 'aria-label': profileName(profile) },
+    src ? img(src, { alt: '', loading: 'eager' }) : null,
+    h('span', { class: 'profile-avatar-initial' }, profileName(profile).trim().charAt(0).toLocaleUpperCase('ar') || '?'));
 }
 
 /** Whether to ask now: at a fresh start, signed in, with more than one profile. */

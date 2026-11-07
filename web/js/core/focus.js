@@ -171,6 +171,18 @@ export const focus = {
       focus.restore(scope.el);
       return true;
     }
+    const rtl = document.documentElement.dir === 'rtl';
+    const sidebar = scope.el.querySelector('.sidebar');
+    const inSidebar = !!(sidebar && sidebar.contains(current));
+    const toContent = rtl ? 'left' : 'right';
+    const toSidebar = rtl ? 'right' : 'left';
+    if (inSidebar && direction === toContent) {
+      const view = scope.el.querySelector('.views');
+      if (view) { focus.restore(view); return true; }
+    } else if (!inSidebar && direction === toSidebar && sidebar && isVisible(sidebar)) {
+      focus.restore(sidebar);
+      return true;
+    }
     const target = findNext(current, direction, scope.el);
     if (target) {
       focus.set(target);

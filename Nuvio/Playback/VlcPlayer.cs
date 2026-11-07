@@ -114,6 +114,9 @@ namespace Nuvio.Playback
                 "--no-sub-autodetect-file",
                 "--http-reconnect",
                 "--network-caching=" + NetworkCachingMs,
+                "--avcodec-hw=d3d11",
+                "--vout=direct3d11",
+                "--d3d11-shader-conversion",
             };
             if (Interlocked.Exchange(ref _initStarted, 1) == 1)
             {
@@ -427,6 +430,8 @@ namespace Nuvio.Playback
         // Worker: (re)opens the current request, resuming at startSeconds.
         private void StartPlayback(double startSeconds)
         {
+            try
+            {
             StopPlayer();
             _inputStarted = false;
             Interlocked.Exchange(ref _lastTimeMs, (long)(startSeconds * 1000));
@@ -466,6 +471,24 @@ namespace Nuvio.Playback
             using (media)
             {
                 _mediaPlayer.Play(media);
+            }
+            }
+            catch (Exception ex)
+            {
+                // HTTP failures (including 502) and decoder/Vout startup errors must reach the page.
+                Log.Error("Starting stream failed", ex);
+                try { _input?.Abort(); _mediaPlayer?.Stop(); }
+                catch (Exception stopError) { Log.Error("Stopping failed stream", stopError); }
+                _input?.Dispose();
+                _input = null;
+                var seq = Interlocked.Read(ref _workerLoadSeq);
+                RunOnUi(() =>
+                {
+                    if (seq == _loadSeq)
+                    {
+                        RaiseEnded("error", PlaybackErrorMessage + " (" + ex.Message + ")");
+                    }
+                });
             }
         }
 

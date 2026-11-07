@@ -540,7 +540,9 @@ namespace Nuvio
         private void OnProcessFailed(CoreWebView2 sender, CoreWebView2ProcessFailedEventArgs e)
         {
             Log.Write("WebView2 process failed: " + e.ProcessFailedKind);
-            if (e.ProcessFailedKind == CoreWebView2ProcessFailedKind.RenderProcessExited ||
+            var failure = e.ProcessFailedKind.ToString();
+            if (failure == "GpuProcessExited" ||
+                e.ProcessFailedKind == CoreWebView2ProcessFailedKind.RenderProcessExited ||
                 e.ProcessFailedKind == CoreWebView2ProcessFailedKind.RenderProcessUnresponsive)
             {
                 _player.Stop();

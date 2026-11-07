@@ -22,6 +22,7 @@
   --radius-sm: .5rem;
   --sidebar-w: 6rem;
   --sidebar-open-w: 17rem;
+  --poster-width: 11rem;
   --content-left: 8.5rem;
   --content-right: 4rem;
   --ease: cubic-bezier(.2, .8, .2, 1);
@@ -221,7 +222,11 @@ html.pointer .card:hover .card-art { box-shadow: 0 0 0 .15rem rgba(255, 255, 255
   background: var(--accent); color: #fff; font-size: .85rem; font-weight: 700;
 }
 
-.poster-card { width: 11rem; }
+.poster-card { width: var(--poster-width); }
+html[data-poster-size="compact"] { --poster-width: 8.5rem; }
+html[data-poster-size="standard"] { --poster-width: 11rem; }
+html[data-poster-size="large"] { --poster-width: 13rem; }
+html[data-poster-size="extraLarge"] { --poster-width: 15rem; }
 .poster-card .card-art { aspect-ratio: 2 / 3; }
 .poster-card.shape-landscape { width: 20rem; }
 .poster-card.shape-landscape .card-art { aspect-ratio: 16 / 9; }
@@ -260,7 +265,7 @@ html.pointer .card:hover .card-art { box-shadow: 0 0 0 .15rem rgba(255, 255, 255
 .episode-card.unreleased .card-art { opacity: .55; }
 
 .poster-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, 11rem); gap: 2rem 1.3rem;
+  display: grid; grid-template-columns: repeat(auto-fill, var(--poster-width)); gap: 2rem 1.3rem;
   padding: 1rem var(--content-right) 2rem var(--content-left);
 }
 .poster-grid > .empty-state { grid-column: 1 / -1; }
@@ -479,10 +484,13 @@ html.pointer .setting-row:hover:not(.focused) { background: var(--surface-2); }
 .profile-lock { display: flex; align-items: center; gap: .3rem; font-size: .9rem; color: var(--muted); }
 .profile-lock .icon { width: 1rem; height: 1rem; }
 .profile-avatar {
-  display: inline-flex; align-items: center; justify-content: center; flex: none; border-radius: 50%;
+  position: relative; overflow: hidden; display: inline-flex; align-items: center; justify-content: center; flex: none; border-radius: 50%;
   color: #fff; font-weight: 700; text-shadow: 0 .1rem .3rem rgba(0, 0, 0, .3);
 }
-.profile-avatar-small { width: 2.2rem; height: 2.2rem; font-size: 1rem; margin-left: .6rem; }
+.profile-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
+.profile-avatar img.loaded + .profile-avatar-initial { opacity: 0; }
+.profile-avatar-initial { transition: opacity .15s; }
+.profile-avatar-small { width: 2.2rem; height: 2.2rem; font-size: 1rem; margin-inline-start: .6rem; }
 html.pointer .profile-tile:hover:not(.focused) { color: var(--text); }
 
 /* ---------- Updates and log ---------- */
@@ -683,3 +691,19 @@ html.pointer .osd-btn:hover:not(.focused) { background: rgba(255, 255, 255, .18)
 }
 .stream-item.resolving { animation: pulse 1s ease-in-out infinite; }
 @keyframes pulse { 50% { opacity: .55; } }
+
+
+/* Arabic and other right-to-left layouts. */
+html[dir="rtl"] .sidebar { left: auto; right: 0; background: linear-gradient(270deg, rgba(var(--bg-rgb), .92) 0%, rgba(var(--bg-rgb), .6) 70%, rgba(var(--bg-rgb), 0) 100%); }
+html[dir="rtl"].sidebar-open .sidebar { background: linear-gradient(270deg, rgba(var(--bg-rgb), .98) 0%, rgba(var(--bg-rgb), .95) 75%, rgba(var(--bg-rgb), 0) 100%); }
+html[dir="rtl"].sidebar-open .sidebar-logo { padding-left: 0; padding-right: .6rem; }
+html[dir="rtl"] .sidebar-item.active::before { left: auto; right: .35rem; }
+html[dir="rtl"] .page-title { padding-left: var(--content-right); padding-right: var(--content-left); }
+html[dir="rtl"] .row-header, html[dir="rtl"] .row-track, html[dir="rtl"] .poster-grid { padding-left: var(--content-right); padding-right: var(--content-left); }
+html[dir="rtl"] .row-track { scroll-padding-left: var(--content-right); scroll-padding-right: var(--content-left); }
+html[dir="rtl"] .card-watched { left: .55rem; right: auto; }
+html[dir="rtl"] .card-tag { left: auto; right: .6rem; }
+html[dir="rtl"] .card-logo, html[dir="rtl"] .card-logo-text { left: auto; right: 1rem; text-align: right; }
+html[dir="rtl"] .card-logo { object-position: right bottom; }
+html[dir="rtl"] .details-credits { padding-left: 0; padding-right: 6rem; }
+html[dir="rtl"] .streams-layout { padding-left: var(--content-right); padding-right: 5rem; }

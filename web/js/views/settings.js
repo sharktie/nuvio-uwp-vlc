@@ -313,6 +313,7 @@ function appearancePage() {
     settingToggle('amoled', 'AMOLED Black', 'Use pure black backgrounds for OLED screens'),
     sectionHeader('HOME'),
     settingToggle('showHero', 'Featured titles', 'The large banner at the top of Home'),
+    settingChoice('posterSize', 'Poster size', 'Choose one of four poster widths for catalog cards', [['compact', 'Compact'], ['standard', 'Standard'], ['large', 'Large'], ['extraLarge', 'Extra large']]),
     settingToggle('showCatalogType', 'Show Catalog Type', 'Show type suffix next to catalog name (Movie/Series)'),
     settingToggle('hideUnreleased', 'Hide Unreleased Content', 'Hide movies and shows that haven\'t been released yet'));
 }

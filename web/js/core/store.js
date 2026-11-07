@@ -78,6 +78,7 @@ export const DEFAULT_SETTINGS = {
   // Appearance
   amoled: false,
   showHero: true,
+  posterSize: 'standard', // compact | standard | large | extraLarge
   showCatalogType: true,
   hideUnreleased: false,
   // Integrations
