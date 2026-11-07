@@ -26,16 +26,30 @@ const DATA_TEXT = '.card-title, .card-fallback, .card-logo-text, .profile-name, 
 
 export function installArabicLocalization() {
   if (!document.documentElement || document.documentElement.lang !== 'ar' || !document.body) return;
+  const directionalText = '.card-title, .card-fallback, .card-logo-text, .profile-name, .stream-title, .meta-title, .sub-line, .loading-title, .loading-text, .osd-name, .osd-episode, .osd-source';
+  const setTextDirection = (element) => {
+    const text = (element.value || element.textContent || '').trim();
+    if (text) element.setAttribute('dir', /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/.test(text) ? 'rtl' : 'ltr');
+  };
   const translateNode = (node) => {
     if (node.nodeType === Node.TEXT_NODE) {
-      if (node.parentElement && node.parentElement.closest(DATA_TEXT)) return;
+      const parent = node.parentElement;
+      if (parent && parent.closest(DATA_TEXT)) {
+        const dataElement = parent.closest(directionalText);
+        if (dataElement) setTextDirection(dataElement);
+        return;
+      }
       const value = node.nodeValue;
       const next = t(value);
       if (next !== value) node.nodeValue = next;
       return;
     }
-    if (node.nodeType !== Node.ELEMENT_NODE || node.matches(DATA_TEXT)) return;
-    if ((['SPAN', 'P', 'H1', 'H2', 'H3', 'H4', 'LABEL', 'INPUT', 'TEXTAREA'].includes(node.tagName) && node.childElementCount === 0) || node.matches('.sub-line, .loading-title, .loading-text, .osd-name, .osd-episode, .osd-source')) node.setAttribute('dir', 'auto');
+    if (node.nodeType !== Node.ELEMENT_NODE) return;
+    if (node.matches(DATA_TEXT)) {
+      if (node.matches(directionalText)) setTextDirection(node);
+      return;
+    }
+    if ((['SPAN', 'P', 'H1', 'H2', 'H3', 'H4', 'LABEL', 'INPUT', 'TEXTAREA'].includes(node.tagName) && node.childElementCount === 0) || node.matches(directionalText)) setTextDirection(node);
     for (const name of ['aria-label', 'placeholder', 'title', 'alt']) {
       const value = node.getAttribute(name);
       if (value) {

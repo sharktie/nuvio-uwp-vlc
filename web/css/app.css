@@ -249,7 +249,7 @@ html[data-poster-size="extraLarge"] { --poster-width: 15rem; }
 .card-shade { position: absolute; inset: 0; background: linear-gradient(0deg, rgba(0, 0, 0, .75) 0%, rgba(0, 0, 0, 0) 60%); }
 .card-logo { position: absolute; inset-inline-start: 1rem; bottom: 1.6rem; max-width: 55%; max-height: 32%; object-fit: contain; object-position: left bottom; direction: ltr; unicode-bidi: isolate; }
 .card-logo.failed { display: none; }
-.card-logo-text { position: absolute; inset-inline: 1rem; bottom: 1.6rem; font-weight: 700; font-size: 1.3rem; text-shadow: 0 .1rem .4rem rgba(0, 0, 0, .8); direction: ltr; unicode-bidi: isolate; text-align: start; }
+.card-logo-text { position: absolute; inset-inline: 1rem; bottom: 1.6rem; font-weight: 700; font-size: 1.3rem; text-shadow: 0 .1rem .4rem rgba(0, 0, 0, .8); unicode-bidi: isolate; text-align: start; }
 .card-caption { display: flex; flex-direction: column; gap: .1rem; min-width: 0; }
 .card-caption .card-title { opacity: 1; color: var(--text); font-weight: 600; }
 .card-sub { font-size: .95rem; color: var(--muted); }
@@ -321,11 +321,11 @@ html[data-poster-size="extraLarge"] { --poster-width: 15rem; }
     linear-gradient(0deg, var(--bg) 8%, rgba(var(--bg-rgb), .55) 40%, rgba(var(--bg-rgb), 0) 70%);
 }
 .details-body { position: relative; z-index: 1; padding-top: 16vh; }
-.details-hero { display: flex; flex-direction: column; gap: 1.1rem; padding: 0 var(--content-right) 2.5rem 6rem; max-width: 60rem; min-height: 50vh; justify-content: flex-end; }
+.details-hero { display: flex; flex-direction: column; gap: 1.1rem; padding: 0 0 2.5rem; padding-inline-start: 6rem; padding-inline-end: var(--content-right); max-width: 60rem; min-height: 50vh; justify-content: flex-end; }
 .details-description { color: var(--text-2); font-size: 1.2rem; max-width: 46rem; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
-.details .row-header, .details .row-track, .details .season-chips { padding-inline-start: 6rem; scroll-padding-inline-start: 6rem; }
+.details .row-header, .details .row-track, .details .season-chips { padding-inline: 6rem var(--content-right); scroll-padding-inline-start: 6rem; }
 .details-episodes { margin-top: .5rem; }
-.season-chips { display: flex; gap: .8rem; overflow-x: auto; scrollbar-width: none; padding: .8rem var(--content-right) .4rem 6rem; }
+.season-chips { display: flex; gap: .8rem; overflow-x: auto; scrollbar-width: none; padding: .8rem 0 .4rem; padding-inline: 6rem var(--content-right); }
 .details-credits { padding: 1rem 0 2rem; padding-inline: 6rem var(--content-right); display: grid; gap: .6rem; color: var(--text-2); max-width: 70rem; }
 .credit { display: flex; gap: 1rem; }
 .credit-label { color: var(--muted); min-width: 7rem; font-weight: 600; }
@@ -404,7 +404,7 @@ html.pointer .stream-item:hover:not(.focused) { background: var(--surface-2); }
 .search-recent .row-title { padding-inline-start: var(--content-left); margin-bottom: .3rem; }
 
 /* ---------- Settings ---------- */
-.settings-list { display: flex; flex-direction: column; gap: .6rem; padding: 0 var(--content-right) 2rem var(--content-left); max-width: 80rem; }
+.settings-list { display: flex; flex-direction: column; gap: .6rem; padding: 0 0 2rem; padding-inline: var(--content-left) var(--content-right); max-width: 80rem; }
 .settings-section { font-size: .95rem; letter-spacing: .1em; color: var(--muted); margin: 1.6rem 0 .3rem; }
 .settings-hint { color: var(--muted); font-size: 1rem; max-width: 60rem; padding: .3rem 0 .6rem; }
 .settings-actions { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: .4rem; }
@@ -427,6 +427,7 @@ html.pointer .setting-row:hover:not(.focused) { background: var(--surface-2); }
 .toggle-knob { position: absolute; top: .25rem; inset-inline-start: .25rem; width: 1.4rem; height: 1.4rem; border-radius: 50%; background: #fff; transition: transform .15s var(--ease); }
 .toggle.on { background: var(--accent); }
 .toggle.on .toggle-knob { transform: translateX(1.5rem); }
+html[dir="rtl"] .toggle.on .toggle-knob { transform: translateX(-1.5rem); }
 .setting-row.focused .toggle:not(.on) { background: rgba(0, 0, 0, .25); }
 
 .addon-list { display: flex; flex-direction: column; gap: 1rem; }
@@ -699,8 +700,7 @@ html.pointer .osd-btn:hover:not(.focused) { background: rgba(255, 255, 255, .18)
 /* Direction-aware layout. Icons, logos and player controls stay in their own LTR context. */
 html[dir="rtl"] .sidebar { background: linear-gradient(270deg, rgba(var(--bg-rgb), .92) 0%, rgba(var(--bg-rgb), .6) 70%, rgba(var(--bg-rgb), 0) 100%); }
 html[dir="rtl"].sidebar-open .sidebar { background: linear-gradient(270deg, rgba(var(--bg-rgb), .98) 0%, rgba(var(--bg-rgb), .95) 75%, rgba(var(--bg-rgb), 0) 100%); }
-.sidebar-logo, .profile-wordmark, .loading-logo, .streams-logo, .icon { direction: ltr; unicode-bidi: isolate; }
-html[lang="ar"] [dir="auto"] { unicode-bidi: plaintext; }
-.player [dir="auto"], .player-subs, .sub-line { unicode-bidi: plaintext; }
+.sidebar-logo, .profile-wordmark, .loading-logo, .streams-logo, .hero-logo, .details-logo, .icon { direction: ltr; unicode-bidi: isolate; }
+.player-subs, .sub-line { unicode-bidi: plaintext; }
 
 html[lang="ar"] body { font-family: "Segoe UI", Tahoma, "Noto Sans Arabic", system-ui, sans-serif; }
