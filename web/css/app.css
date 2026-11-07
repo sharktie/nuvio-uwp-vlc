@@ -487,7 +487,9 @@ html.pointer .setting-row:hover:not(.focused) { background: var(--surface-2); }
   position: relative; overflow: hidden; display: inline-flex; align-items: center; justify-content: center; flex: none; border-radius: 50%;
   color: #fff; font-weight: 700; text-shadow: 0 .1rem .3rem rgba(0, 0, 0, .3);
 }
-.profile-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
+.profile-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: inherit; object-fit: cover; opacity: 0; transition: opacity .15s; }
+.profile-avatar img.loaded { opacity: 1; }
+.profile-avatar img.failed { display: none; }
 .profile-avatar img.loaded + .profile-avatar-initial { opacity: 0; }
 .profile-avatar-initial { transition: opacity .15s; }
 .profile-avatar-small { width: 2.2rem; height: 2.2rem; font-size: 1rem; margin-inline-start: .6rem; }
