@@ -709,3 +709,5 @@ html[dir="rtl"] .card-logo, html[dir="rtl"] .card-logo-text { left: auto; right:
 html[dir="rtl"] .card-logo { object-position: right bottom; }
 html[dir="rtl"] .details-credits { padding-left: 0; padding-right: 6rem; }
 html[dir="rtl"] .streams-layout { padding-left: var(--content-right); padding-right: 5rem; }
+
+html[lang="ar"] body { font-family: "Segoe UI", Tahoma, "Noto Sans Arabic", system-ui, sans-serif; }

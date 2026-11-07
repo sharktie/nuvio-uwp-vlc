@@ -1,3 +1,4 @@
+import { installArabicLocalization } from './core/i18n.js';
 import { h } from './core/dom.js';
 import { bridge } from './core/bridge.js';
 import { focus } from './core/focus.js';
@@ -123,4 +124,5 @@ async function boot() {
 window.addEventListener('error', (e) => bridge.log(`Error: ${e.message} at ${e.filename}:${e.lineno}`));
 window.addEventListener('unhandledrejection', (e) => bridge.log(`Unhandled rejection: ${e.reason && (e.reason.stack || e.reason.message || e.reason)}`));
 
+installArabicLocalization();
 boot();

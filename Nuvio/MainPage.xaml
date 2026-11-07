@@ -26,11 +26,11 @@
 
         <Grid x:Name="LoadErrorPanel" Background="#FF0D0E13" Visibility="Collapsed">
             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="560" Padding="24" Spacing="16">
-                <TextBlock Text="Couldn't load Nuvio" FontSize="28" Foreground="White" HorizontalAlignment="Center" />
+                <TextBlock Text="تعذّر تحميل Nuvio" FontSize="28" Foreground="White" HorizontalAlignment="Center" />
                 <TextBlock x:Name="LoadErrorText" Foreground="#B3FFFFFF" TextWrapping="Wrap" TextAlignment="Center" />
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="12">
-                    <Button x:Name="RetryButton" Content="Retry" MinWidth="160" Click="RetryButton_Click" />
-                    <Button x:Name="BuiltInButton" Content="Use the built-in app" MinWidth="160" Visibility="Collapsed" Click="BuiltInButton_Click" />
+                    <Button x:Name="RetryButton" Content="إعادة المحاولة" MinWidth="160" Click="RetryButton_Click" />
+                    <Button x:Name="BuiltInButton" Content="استخدام التطبيق المضمّن" MinWidth="160" Visibility="Collapsed" Click="BuiltInButton_Click" />
                 </StackPanel>
             </StackPanel>
         </Grid>
