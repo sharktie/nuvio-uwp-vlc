@@ -77,6 +77,7 @@ export const DEFAULT_SETTINGS = {
   subtitleOffset: 8, // percent of screen height from the bottom
   // Appearance
   amoled: false,
+  appLanguage: 'ar', // ar | en
   showHero: true,
   posterSize: 'standard', // compact | standard | large | extraLarge
   showCatalogType: true,

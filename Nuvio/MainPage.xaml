@@ -7,7 +7,7 @@
     xmlns:controls="using:Microsoft.UI.Xaml.Controls"
     xmlns:vlc="using:LibVLCSharp.Platforms.Windows"
     mc:Ignorable="d"
-    FlowDirection="RightToLeft"
+    FlowDirection="LeftToRight"
     Background="Black">
 
     <Grid Background="Black">
@@ -19,18 +19,19 @@
                        SizeChanged="VideoView_SizeChanged"
                        Opacity="0"
                        IsHitTestVisible="False"
-                       IsTabStop="False" />
+                       IsTabStop="False"
+                       FlowDirection="LeftToRight" />
 
         <!-- The controller drives the page through AppBridge (see ControllerBridge). -->
-        <controls:WebView2 x:Name="WebView" />
+        <controls:WebView2 x:Name="WebView" FlowDirection="LeftToRight" />
 
         <Grid x:Name="LoadErrorPanel" Background="#FF0D0E13" Visibility="Collapsed">
             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="560" Padding="24" Spacing="16">
-                <TextBlock Text="تعذّر تحميل Nuvio" FontSize="28" Foreground="White" HorizontalAlignment="Center" />
-                <TextBlock x:Name="LoadErrorText" Foreground="#B3FFFFFF" TextWrapping="Wrap" TextAlignment="Center" />
+                <TextBlock x:Name="LoadErrorTitle" Text="Couldn't load Nuvio" FontSize="28" Foreground="White" HorizontalAlignment="Center" />
+                <TextBlock x:Name="LoadErrorText" Foreground="#B3FFFFFF" TextWrapping="Wrap" TextAlignment="Left" FlowDirection="LeftToRight" />
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="12">
-                    <Button x:Name="RetryButton" Content="إعادة المحاولة" MinWidth="160" Click="RetryButton_Click" />
-                    <Button x:Name="BuiltInButton" Content="استخدام التطبيق المضمّن" MinWidth="160" Visibility="Collapsed" Click="BuiltInButton_Click" />
+                    <Button x:Name="RetryButton" Content="Retry" MinWidth="160" Click="RetryButton_Click" />
+                    <Button x:Name="BuiltInButton" Content="Use the built-in app" MinWidth="160" Visibility="Collapsed" Click="BuiltInButton_Click" />
                 </StackPanel>
             </StackPanel>
         </Grid>

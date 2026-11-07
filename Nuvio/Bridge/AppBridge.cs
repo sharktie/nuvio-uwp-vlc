@@ -48,6 +48,7 @@ namespace Nuvio.Bridge
     {
         Task<TextEntryResult> RequestTextAsync(TextEntryRequest request);
         void SetPointerMode(bool enabled);
+        void SetFlowDirection(bool rightToLeft);
         /// <summary>Saves a developer web app address (null for the built-in app) and reloads.</summary>
         void SetWebAppUrl(string url);
         string WebAppUrl { get; }
@@ -221,6 +222,9 @@ namespace Nuvio.Bridge
                     break;
                 case "app.pointer":
                     _host.SetPointerMode(GetBool(message, "enabled", false));
+                    break;
+                case "app.flowDirection":
+                    _host.SetFlowDirection(string.Equals(GetString(message, "direction"), "rtl", StringComparison.OrdinalIgnoreCase));
                     break;
                 case "app.setWebAppUrl":
                     _host.SetWebAppUrl(GetString(message, "url"));

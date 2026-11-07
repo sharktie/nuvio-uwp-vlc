@@ -3,21 +3,24 @@ const translations = new Map([["Home","الرئيسية"],["Search","بحث"],["
 
 export function t(value) {
   const original = String(value);
+  if (!document.documentElement || document.documentElement.lang !== 'ar') return original;
   const trimmed = original.trim();
   let translated = translations.get(trimmed);
   if (!translated) {
-    let match = trimmed.match(/^Profile (\\d+)$/i);
+    let match = trimmed.match(/^Profile (\d+)$/i);
     if (match) translated = `الملف الشخصي ${match[1]}`;
     else if ((match = trimmed.match(/^Last synced (.+)$/i))) translated = `آخر مزامنة: ${match[1]}`;
-    else if ((match = trimmed.match(/^Signed in as (.+)\\. (.+)$/i))) translated = `تم تسجيل الدخول باسم ${match[1]}. ${match[2]}`;
+    else if ((match = trimmed.match(/^Signed in as (.+)\. (.+)$/i))) translated = `تم تسجيل الدخول باسم ${match[1]}. ${match[2]}`;
     else if ((match = trimmed.match(/^Sync failed: (.+)$/i))) translated = `فشلت المزامنة: ${match[1]}`;
     else if ((match = trimmed.match(/^Sign-in failed: (.+)$/i))) translated = `فشل تسجيل الدخول: ${match[1]}`;
     else if ((match = trimmed.match(/^Couldn.t check the PIN: (.+)$/i))) translated = `تعذّر التحقق من رمز PIN: ${match[1]}`;
-    else if ((match = trimmed.match(/^HTTP (\\d{3})(.*)$/i))) translated = `خطأ HTTP ${match[1]}${match[2]}`;
-    else if ((match = trimmed.match(/^Connected\\. Torrent results show "via (.+)" and play through it\\.$/i))) translated = `متصل. تُعرض نتائج التورنت عبر ${match[1]} وتُشغّل من خلاله.`;
+    else if ((match = trimmed.match(/^HTTP (\d{3})(.*)$/i))) translated = `خطأ HTTP ${match[1]}${match[2]}`;
+    else if ((match = trimmed.match(/^Connected\. Torrent results show "via (.+)" and play through it\.$/i))) translated = `متصل. تُعرض نتائج التورنت عبر ${match[1]} وتُشغّل من خلاله.`;
   }
   return translated ? original.replace(trimmed, translated) : original;
 }
+
+translations.set('Choose the language and reading direction for the app', 'اختر لغة التطبيق واتجاه القراءة');
 
 const DATA_TEXT = '.card-title, .card-fallback, .card-logo-text, .profile-name, .profile-avatar, .cast-name, .person-name, .stream-title, .meta-title, code, pre';
 
@@ -32,6 +35,7 @@ export function installArabicLocalization() {
       return;
     }
     if (node.nodeType !== Node.ELEMENT_NODE || node.matches(DATA_TEXT)) return;
+    if ((['SPAN', 'P', 'H1', 'H2', 'H3', 'H4', 'LABEL', 'INPUT', 'TEXTAREA'].includes(node.tagName) && node.childElementCount === 0) || node.matches('.sub-line, .loading-title, .loading-text, .osd-name, .osd-episode, .osd-source')) node.setAttribute('dir', 'auto');
     for (const name of ['aria-label', 'placeholder', 'title', 'alt']) {
       const value = node.getAttribute(name);
       if (value) {

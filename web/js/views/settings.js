@@ -90,8 +90,8 @@ function choiceRow({ label, description, choices, get, set }) {
   });
 }
 
-function settingChoice(name, label, description, choices) {
-  return choiceRow({ label, description, choices, get: () => settings.get(name), set: (v) => settings.set(name, v) });
+function settingChoice(name, label, description, choices, onSet) {
+  return choiceRow({ label, description, choices, get: () => settings.get(name), set: (v) => onSet ? onSet(v) : settings.set(name, v) });
 }
 
 function settingToggle(name, label, description) {
@@ -310,6 +310,10 @@ function subtitlesPage() {
 function appearancePage() {
   return page('Appearance',
     sectionHeader('THEME'),
+    settingChoice('appLanguage', 'Language', 'Choose the language and reading direction for the app', [['ar', 'Arabic'], ['en', 'English']], (language) => {
+      settings.set('appLanguage', language);
+      window.location.reload();
+    }),
     settingToggle('amoled', 'AMOLED Black', 'Use pure black backgrounds for OLED screens'),
     sectionHeader('HOME'),
     settingToggle('showHero', 'Featured titles', 'The large banner at the top of Home'),

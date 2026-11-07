@@ -33,6 +33,10 @@ registerView('catalog', catalogView);
 
 function applyTheme() {
   const root = document.documentElement;
+  const language = settings.get('appLanguage') === 'en' ? 'en' : 'ar';
+  root.lang = language;
+  root.dir = language === 'ar' ? 'rtl' : 'ltr';
+  if (bridge.native) bridge.send('app.flowDirection', { direction: root.dir });
   root.classList.toggle('amoled', !!settings.get('amoled'));
   root.dataset.posterSize = settings.get('posterSize') || 'standard';
   // On the console the controller's pointer is off unless the user turns it on (see focus.js).
@@ -92,6 +96,7 @@ async function boot() {
   root.dataset.platform = bridge.platform;
   if (bridge.platform === 'xbox') root.classList.add('tv');
   applyTheme();
+  installArabicLocalization();
   events.on('settings', applyTheme);
   if (bridge.native && settings.get('controllerCursor')) bridge.send('app.pointer', { enabled: true });
   events.on('nav:back', onBack);
@@ -124,5 +129,4 @@ async function boot() {
 window.addEventListener('error', (e) => bridge.log(`Error: ${e.message} at ${e.filename}:${e.lineno}`));
 window.addEventListener('unhandledrejection', (e) => bridge.log(`Unhandled rejection: ${e.reason && (e.reason.stack || e.reason.message || e.reason)}`));
 
-installArabicLocalization();
 boot();

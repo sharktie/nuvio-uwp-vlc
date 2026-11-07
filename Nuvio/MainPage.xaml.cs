@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Globalization;
 using System.Threading.Tasks;
 using LibVLCSharp.Platforms.Windows;
 using Microsoft.Web.WebView2.Core;
@@ -46,6 +47,7 @@ namespace Nuvio
         {
             Log.Write("Main page starting");
             this.InitializeComponent();
+            SetFlowDirection(string.Equals(CultureInfo.CurrentUICulture.TwoLetterISOLanguageName, "ar", StringComparison.OrdinalIgnoreCase));
             _player = new VlcPlayer(Dispatcher);
             _player.MediaPlayerCreated += mediaPlayer =>
             {
@@ -66,6 +68,21 @@ namespace Nuvio
             SetPointerMode(false);
             PreviewKeyDown += OnPreviewKeyDown;
             Loaded += OnLoaded;
+        }
+
+        public void SetFlowDirection(bool rightToLeft)
+        {
+            var direction = rightToLeft
+                ? Windows.UI.Xaml.FlowDirection.RightToLeft
+                : Windows.UI.Xaml.FlowDirection.LeftToRight;
+            FlowDirection = direction;
+            LoadErrorTitle.FlowDirection = direction;
+            LoadErrorText.FlowDirection = Windows.UI.Xaml.FlowDirection.LeftToRight;
+            RetryButton.FlowDirection = direction;
+            BuiltInButton.FlowDirection = direction;
+            LoadErrorTitle.Text = rightToLeft ? "تعذّر تحميل Nuvio" : "Couldn't load Nuvio";
+            RetryButton.Content = rightToLeft ? "إعادة المحاولة" : "Retry";
+            BuiltInButton.Content = rightToLeft ? "استخدام التطبيق المضمّن" : "Use the built-in app";
         }
 
         public string WebAppUrl
