@@ -719,3 +719,16 @@ html[dir="rtl"] .details-shade {
     linear-gradient(0deg, var(--bg) 8%, rgba(var(--bg-rgb), .55) 40%, rgba(var(--bg-rgb), 0) 70%);
 }
 html[dir="rtl"] .row-track, html[dir="rtl"] .poster-grid { direction: rtl; }
+
+/* Keep featured copy clear of the right-side navigation in RTL. */
+html[dir="rtl"] { --hero-content-start: calc(var(--sidebar-w) + 2rem); }
+html[dir="rtl"].sidebar-open { --hero-content-start: calc(var(--sidebar-open-w) + 2rem); }
+html[dir="rtl"] .hero {
+  padding-inline-start: var(--hero-content-start);
+  transition: padding-inline-start .22s var(--ease);
+}
+html[dir="rtl"] .hero-info { width: min(44rem, 100%); min-width: 0; }
+html[dir="rtl"] .hero-description { max-width: 100%; }
+@media (max-aspect-ratio: 1/1) {
+  html[dir="rtl"], html[dir="rtl"].sidebar-open { --hero-content-start: 2rem; }
+}
