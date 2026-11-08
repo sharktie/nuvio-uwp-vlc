@@ -114,9 +114,8 @@ html.sidebar-open .sidebar {
   width: var(--sidebar-open-w);
   background: linear-gradient(90deg, rgba(var(--bg-rgb), .98) 0%, rgba(var(--bg-rgb), .95) 75%, rgba(var(--bg-rgb), 0) 100%);
 }
-.sidebar-logo { display: flex; justify-content: center; margin-bottom: 3rem; }
+.sidebar-logo { display: flex; justify-content: flex-start; padding-inline-start: .6rem; margin-bottom: 3rem; }
 .sidebar-logo img { width: 2.8rem; height: 2.8rem; }
-html.sidebar-open .sidebar-logo { justify-content: flex-start; padding-inline-start: .6rem; }
 .sidebar-items { display: flex; flex-direction: column; gap: .6rem; flex: 1; justify-content: center; margin-top: -6rem; }
 .sidebar-item {
   position: relative; display: flex; align-items: center; gap: 1.2rem; height: 3.6rem; padding: 0 1.05rem;
@@ -700,7 +699,7 @@ html.pointer .osd-btn:hover:not(.focused) { background: rgba(255, 255, 255, .18)
 /* Direction-aware layout. Icons, logos and player controls stay in their own LTR context. */
 html[dir="rtl"] .sidebar { background: linear-gradient(270deg, rgba(var(--bg-rgb), .92) 0%, rgba(var(--bg-rgb), .6) 70%, rgba(var(--bg-rgb), 0) 100%); }
 html[dir="rtl"].sidebar-open .sidebar { background: linear-gradient(270deg, rgba(var(--bg-rgb), .98) 0%, rgba(var(--bg-rgb), .95) 75%, rgba(var(--bg-rgb), 0) 100%); }
-.sidebar-logo, .profile-wordmark, .loading-logo, .streams-logo, .hero-logo, .details-logo, .icon { direction: ltr; unicode-bidi: isolate; }
+.profile-wordmark, .loading-logo, .streams-logo, .hero-logo, .details-logo, .icon { direction: ltr; unicode-bidi: isolate; }
 .player-subs, .sub-line { unicode-bidi: plaintext; }
 
 html[lang="ar"] body { font-family: "Segoe UI", Tahoma, "Noto Sans Arabic", system-ui, sans-serif; }
