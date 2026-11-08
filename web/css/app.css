@@ -275,8 +275,10 @@ html[data-poster-size="extraLarge"] { --poster-width: 15rem; }
 /* ---------- Home ---------- */
 .page-backdrop { position: absolute; inset: 0; pointer-events: none; }
 .backdrop-layer {
-  position: absolute; top: 0; inset-inline-end: 0; width: 78%; height: 82%;
-  background-size: cover; background-position: center top; opacity: 0; transition: opacity .6s ease;
+  /* Keep artwork viewport-sized in both directions; logical end offsets shift it in RTL. */
+  position: absolute; inset: 0; width: 100%; height: 100%; direction: ltr;
+  background-size: cover; background-position: center center; background-repeat: no-repeat;
+  opacity: 0; transition: opacity .6s ease;
 }
 .backdrop-layer.visible { opacity: 1; }
 .backdrop-shade {
@@ -309,8 +311,10 @@ html[data-poster-size="extraLarge"] { --poster-width: 15rem; }
 
 /* ---------- Details ---------- */
 .details-backdrop {
-  position: absolute; top: 0; inset-inline-end: 0; width: 80%; height: 90%;
-  background-size: cover; background-position: center top; transition: opacity .4s;
+  /* Use physical viewport bounds so RTL does not move the image to the opposite edge. */
+  position: absolute; inset: 0; width: 100%; height: 100%; direction: ltr;
+  background-size: cover; background-position: center center; background-repeat: no-repeat;
+  transition: opacity .4s;
 }
 .details-backdrop.dim { width: 100%; height: 100%; opacity: .35; filter: blur(.2rem); transform: scale(1.03); }
 .details-shade {
@@ -704,4 +708,9 @@ html[dir="rtl"].sidebar-open .sidebar { background: linear-gradient(270deg, rgba
 
 html[lang="ar"] body { font-family: "Segoe UI", Tahoma, "Noto Sans Arabic", system-ui, sans-serif; }
 
+html[dir="rtl"] .backdrop-shade, html[dir="rtl"] .details-shade {
+  background:
+    linear-gradient(270deg, var(--bg) 18%, rgba(var(--bg-rgb), .85) 34%, rgba(var(--bg-rgb), .25) 62%, rgba(var(--bg-rgb), .1) 100%),
+    linear-gradient(0deg, var(--bg) 22%, rgba(var(--bg-rgb), .7) 45%, rgba(var(--bg-rgb), 0) 75%);
+}
 html[dir="rtl"] .row-track, html[dir="rtl"] .poster-grid { direction: rtl; }
