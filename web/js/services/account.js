@@ -647,7 +647,11 @@ export function initAccountSync() {
     }
   });
   if (isSignedIn()) {
-    pullAll().catch((error) => console.warn('Sync pull failed', error));
+    const initialSync = pullAll().catch((error) => {
+      console.warn('Sync pull failed', error);
+    });
     startBackgroundSync();
+    return initialSync;
   }
+  return Promise.resolve();
 }

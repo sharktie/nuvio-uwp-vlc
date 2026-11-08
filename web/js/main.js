@@ -63,6 +63,15 @@ function onBack() {
   toast('Press back again to exit');
 }
 
+function setSplashStatus(arabic, english) {
+  const status = document.getElementById('splash-status');
+  if (status) status.textContent = document.documentElement.lang === 'en' ? english : arabic;
+}
+
+function nextFrame() {
+  return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+}
+
 function hideSplash() {
   const splash = document.getElementById('splash');
   if (!splash) return;
@@ -120,15 +129,38 @@ async function boot() {
   }
 
   router.start(views, shell);
-  hideSplash();
-  bridge.log(`Web app ready (${bridge.platform}${bridge.appVersion ? ' ' + bridge.appVersion : ''})`);
+  setSplashStatus('جارٍ تحميل الفهارس ومزامنة الحساب…', 'Loading catalogs and syncing your account…');
+  bridge.log(`Web app initializing (${bridge.platform}${bridge.appVersion ? ' ' + bridge.appVersion : ''})`);
 
-  // Default addon manifests are remote requests. Fetch them after the first screen is visible.
-  ensureDefaultAddons().catch((error) => console.warn('Default addons failed', error));
+  // Render the shell underneath the branded loader, then wait for first-run catalog discovery
+  // and the initial account sync before revealing the home screen.
+  const addonReady = ensureDefaultAddons().catch((error) => {
+    console.warn('Default addons failed', error);
+  });
   refreshStaleManifests();
-  initAccountSync();
+  const accountReady = initAccountSync();
   initTrakt();
   initJellyfin();
+
+  await nextFrame();
+  await nextFrame();
+  let waitTimer;
+  const ready = await Promise.race([
+    Promise.allSettled([addonReady, accountReady]).then(() => true),
+    new Promise((resolve) => {
+      waitTimer = setTimeout(() => resolve(false), 25000);
+    }),
+  ]);
+  clearTimeout(waitTimer);
+  if (!ready) {
+    setSplashStatus('ما زال الاتصال جارياً؛ سيتم فتح التطبيق ومواصلة التحميل في الخلفية.', 'Services are taking longer than expected. Opening the app while they continue in the background…');
+    await new Promise((resolve) => setTimeout(resolve, 700));
+  } else {
+    setSplashStatus('اكتمل التحميل', 'Ready');
+  }
+  await nextFrame();
+  hideSplash();
+  bridge.log(`Web app ready (${bridge.platform}${bridge.appVersion ? ' ' + bridge.appVersion : ''})`);
   setTimeout(announceUpdate, 6000);
 }
 
