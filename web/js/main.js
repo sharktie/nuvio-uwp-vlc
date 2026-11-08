@@ -91,11 +91,20 @@ async function boot() {
   document.body.appendChild(shell);
   focus.init();
 
-  await bridge.hello();
   const root = document.documentElement;
-  root.dataset.platform = bridge.platform;
-  if (bridge.platform === 'xbox') root.classList.add('tv');
-  applyTheme();
+  const applyPlatform = () => {
+    root.dataset.platform = bridge.platform;
+    root.classList.toggle('tv', bridge.platform === 'xbox');
+    applyTheme();
+  };
+  // Continue painting even if the native hello message is delayed; update platform-specific
+  // behavior as soon as the bridge replies.
+  events.on('native:app.hello', applyPlatform);
+  await Promise.race([
+    bridge.hello(),
+    new Promise((resolve) => setTimeout(resolve, 350)),
+  ]);
+  applyPlatform();
   installArabicLocalization();
   events.on('settings', applyTheme);
   if (bridge.native && settings.get('controllerCursor')) bridge.send('app.pointer', { enabled: true });
@@ -110,19 +119,16 @@ async function boot() {
     }
   }
 
-  try {
-    await ensureDefaultAddons();
-  } catch (error) {
-    console.warn('Default addons failed', error);
-  }
   router.start(views, shell);
+  hideSplash();
+  bridge.log(`Web app ready (${bridge.platform}${bridge.appVersion ? ' ' + bridge.appVersion : ''})`);
+
+  // Default addon manifests are remote requests. Fetch them after the first screen is visible.
+  ensureDefaultAddons().catch((error) => console.warn('Default addons failed', error));
   refreshStaleManifests();
   initAccountSync();
   initTrakt();
   initJellyfin();
-
-  hideSplash();
-  bridge.log(`Web app ready (${bridge.platform}${bridge.appVersion ? ' ' + bridge.appVersion : ''})`);
   setTimeout(announceUpdate, 6000);
 }
 

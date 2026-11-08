@@ -8,8 +8,11 @@
 //   };
 
 const config = {
-  /** The Nuvio server this build signs in to without any setup, or null. */
-  officialServer: null,
+  /** Public Nuvio client settings; the publishable key is not a service-role secret. */
+  officialServer: {
+    backendUrl: 'https://api.nuvio.tv',
+    publishableKey: 'sb_publishable_1Clq8rlTVACkdcZuqr6_AD__xUUC_EN',
+  },
   /** A TMDB key to use when the user hasn't entered their own. */
   tmdbApiKey: '',
   /**

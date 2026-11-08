@@ -93,7 +93,7 @@ jobs:
             "export default $($config | ConvertTo-Json -Compress -Depth 3);" | Set-Content web\js\config.local.js -Encoding utf8
             "Build settings added: $($config.Keys -join ', ')"
           } else {
-            'No build settings: sign-in uses a server chosen in the app.'
+            'No build overrides: sign-in defaults to the official Nuvio server.'
           }
 
       - name: Build package
