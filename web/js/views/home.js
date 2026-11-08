@@ -218,7 +218,7 @@ function pageBackdrop() {
 function heroSection(catalogs, backdrop) {
   const slot = h('div', { class: 'hero-slot' });
   const dots = h('div', { class: 'hero-dots' });
-  const el = h('section', { class: 'hero', 'data-scroll-top': '', 'data-nav-row': '' }, slot, dots);
+  const el = h('section', { class: 'hero', 'data-scroll-top': '', 'data-nav-row': '', 'data-nav-carousel': '' }, slot, dots);
   let items = [];
   let index = 0;
   let timer = 0;
@@ -264,12 +264,12 @@ function heroSection(catalogs, backdrop) {
     }, HERO_INTERVAL_MS);
   };
 
-  // Left/right on the hero buttons' edge flips between featured titles.
+  // At either end of the action buttons, horizontal D-pad input cycles featured titles.
   el.addEventListener('nav-edge', (e) => {
-    if (items.length < 2) return;
-    if (e.detail.direction === 'right') index = (index + 1) % items.length;
-    else if (e.detail.direction === 'left' && focus.current === slot.querySelector('.hero-actions').firstChild) return;
-    else return;
+    if (items.length < 2 || (e.detail.direction !== 'left' && e.detail.direction !== 'right')) return;
+    const rtl = document.documentElement.dir === 'rtl';
+    const forward = rtl ? e.detail.direction === 'left' : e.detail.direction === 'right';
+    index = (index + (forward ? 1 : items.length - 1)) % items.length;
     render();
     schedule();
   });

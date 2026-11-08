@@ -178,6 +178,21 @@ export const focus = {
     const toContent = rtl ? 'left' : 'right';
     const toSidebar = rtl ? 'right' : 'left';
 
+    // Keep horizontal navigation inside the featured carousel until its edge. This lets
+    // the hero switch titles instead of the RTL right edge immediately opening the sidebar.
+    const carousel = !inSidebar && (direction === 'left' || direction === 'right')
+      ? current.closest('[data-nav-carousel]')
+      : null;
+    if (carousel) {
+      const carouselTarget = findNext(current, direction, carousel);
+      if (carouselTarget) {
+        focus.set(carouselTarget);
+        return true;
+      }
+      current.dispatchEvent(new CustomEvent('nav-edge', { bubbles: true, detail: { direction } }));
+      return true;
+    }
+
     if (inSidebar && direction === toContent) {
       const view = scope.el.querySelector('.views');
       if (view) { focus.restore(view); return true; }
