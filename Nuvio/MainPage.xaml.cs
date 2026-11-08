@@ -42,6 +42,9 @@ namespace Nuvio
         private bool _videoViewRequested;
         private bool _videoViewStarting;
         private bool _dialogOpen;
+        private bool _recoveringWebView;
+        private int _unresponsiveRendererReports;
+        private int _automaticWebViewRecoveries;
 
         public MainPage()
         {
@@ -501,6 +504,7 @@ namespace Nuvio
                 return;
             }
             Log.Write("Web app load finished: " + (e.IsSuccess ? "success" : e.WebErrorStatus.ToString()));
+            _recoveringWebView = false;
             if (e.IsSuccess)
             {
                 LoadErrorPanel.Visibility = Visibility.Collapsed;
@@ -556,18 +560,91 @@ namespace Nuvio
 
         private void OnProcessFailed(CoreWebView2 sender, CoreWebView2ProcessFailedEventArgs e)
         {
-            Log.Write("WebView2 process failed: " + e.ProcessFailedKind);
             var failure = e.ProcessFailedKind.ToString();
-            if (failure == "GpuProcessExited" ||
-                e.ProcessFailedKind == CoreWebView2ProcessFailedKind.RenderProcessExited ||
-                e.ProcessFailedKind == CoreWebView2ProcessFailedKind.RenderProcessUnresponsive)
+            Log.Write("WebView2 process failed: " + failure);
+
+            // WebView2 restarts its GPU process automatically. Reloading here can interrupt
+            // playback and add more work while the console is already under memory pressure.
+            if (failure == "GpuProcessExited")
             {
+                return;
+            }
+
+            if (failure == "BrowserProcessExited")
+            {
+                RecoverBrowserProcess();
+                return;
+            }
+
+            if (failure == "RenderProcessUnresponsive")
+            {
+                // This event repeats while the renderer is still busy. Give it one interval to
+                // recover before reloading the page.
+                _unresponsiveRendererReports++;
+                if (_unresponsiveRendererReports < 2)
+                {
+                    return;
+                }
+            }
+            else if (failure != "RenderProcessExited")
+            {
+                // Subframe and utility process failures do not require replacing the whole page.
+                return;
+            }
+
+            RecoverRenderer(sender);
+        }
+
+        private void RecoverRenderer(CoreWebView2 sender)
+        {
+            if (_recoveringWebView)
+            {
+                return;
+            }
+            if (_automaticWebViewRecoveries >= 2)
+            {
+                ShowLoadError("The web view stopped repeatedly. Select Retry to reopen it.", false);
+                return;
+            }
+
+            _recoveringWebView = true;
+            _automaticWebViewRecoveries++;
+            _unresponsiveRendererReports = 0;
+            try
+            {
+                Log.Write("Reloading the web app after renderer failure (attempt " +
+                    _automaticWebViewRecoveries + ")");
                 _player.Stop();
                 sender.Reload();
             }
-            else if (e.ProcessFailedKind == CoreWebView2ProcessFailedKind.BrowserProcessExited)
+            catch (Exception ex)
             {
-                ShowLoadError("The web view stopped unexpectedly.", false);
+                Log.Error("Reloading after renderer failure failed", ex);
+                RecoverBrowserProcess();
+            }
+        }
+
+        private void RecoverBrowserProcess()
+        {
+            if (_recoveringWebView)
+            {
+                return;
+            }
+            _recoveringWebView = true;
+            Log.Write("Recreating the WebView2 control after browser process exit");
+            try
+            {
+                _player.Stop();
+                // BrowserProcessExited closes the current WebView2 controller. A new page creates
+                // a fresh control and reattaches the bridge and controller event handlers.
+                Frame.Navigate(typeof(MainPage));
+                Frame.BackStack.Clear();
+            }
+            catch (Exception ex)
+            {
+                _recoveringWebView = false;
+                Log.Error("Recreating WebView2 after browser process exit failed", ex);
+                ShowLoadError("The web view stopped unexpectedly. Select Retry to reopen it.", false);
             }
         }
 
