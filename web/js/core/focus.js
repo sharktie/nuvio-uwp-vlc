@@ -173,16 +173,58 @@ export const focus = {
     }
     const rtl = document.documentElement.dir === 'rtl';
     const sidebar = scope.el.querySelector('.sidebar');
+    const contentRoot = scope.view || scope.el;
     const inSidebar = !!(sidebar && sidebar.contains(current));
     const toContent = rtl ? 'left' : 'right';
     const toSidebar = rtl ? 'right' : 'left';
+
     if (inSidebar && direction === toContent) {
       const view = scope.el.querySelector('.views');
       if (view) { focus.restore(view); return true; }
-    } else if (!inSidebar && direction === toSidebar && sidebar && isVisible(sidebar)) {
-      focus.restore(sidebar);
-      return true;
     }
+
+    // Keep focus on the row's fixed inline-start anchor as its cards scroll beneath it.
+    // The DOM order follows the rendered direction, which is more reliable than measuring
+    // cards while a smooth scroll is already in progress.
+    const row = !inSidebar && (direction === 'left' || direction === 'right')
+      ? current.closest('[data-scroll-x]')
+      : null;
+    if (row) {
+      const rowTarget = horizontalRowNeighbor(row, current, direction, rtl);
+      if (rowTarget) {
+        if (rtl) focusInHorizontalRow(row, rowTarget);
+        else focus.set(rowTarget);
+        return true;
+      }
+      if (direction === toSidebar && sidebar && isVisible(sidebar)) {
+        focus.restore(sidebar);
+        return true;
+      }
+      if (direction !== toSidebar) {
+        const target = findNext(current, direction, contentRoot);
+        if (target) {
+          focus.set(target);
+          return true;
+        }
+      }
+      current.dispatchEvent(new CustomEvent('nav-edge', { bubbles: true, detail: { direction } }));
+      return false;
+    }
+
+    // In RTL, right is the edge leading to the sidebar. Move to it only after no
+    // content item remains in that direction.
+    if (!inSidebar && direction === toSidebar) {
+      const target = findNext(current, direction, contentRoot);
+      if (target) {
+        focus.set(target);
+        return true;
+      }
+      if (sidebar && isVisible(sidebar)) {
+        focus.restore(sidebar);
+        return true;
+      }
+    }
+
     const target = findNext(current, direction, scope.el);
     if (target) {
       focus.set(target);
@@ -329,6 +371,26 @@ function firstFocusable(root) {
   return rects
     .filter(({ rect }) => rect.top <= rowBottom)
     .sort((a, b) => b.rect.right - a.rect.right)[0].el;
+}
+
+function horizontalRowNeighbor(row, from, direction, rtl) {
+  const items = focusables(row);
+  const index = items.indexOf(from);
+  if (index < 0) return null;
+  const step = direction === 'left' ? (rtl ? 1 : -1) : (rtl ? -1 : 1);
+  return items[index + step] || null;
+}
+
+function focusInHorizontalRow(row, target) {
+  const rowRect = row.getBoundingClientRect();
+  const style = getComputedStyle(row);
+  const padRight = parseFloat(style.scrollPaddingRight) || rowRect.width * 0.04;
+  const targetRight = target.getBoundingClientRect().right;
+  const anchor = rowRect.right - padRight;
+  const delta = targetRight - anchor;
+
+  focus.set(target, { scroll: false });
+  if (Math.abs(delta) > 1) row.scrollBy({ left: delta, behavior: 'smooth' });
 }
 
 function findNext(from, direction, root) {
