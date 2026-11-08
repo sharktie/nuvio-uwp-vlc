@@ -125,8 +125,26 @@ jobs:
             $reader = New-Object IO.StreamReader(($zip.Entries | Where-Object FullName -eq 'AppxManifest.xml').Open())
             [xml]$manifest = $reader.ReadToEnd()
             $reader.Close()
+            if ($manifest.Package.Identity.ProcessorArchitecture -ne 'x64') {
+              throw "Expected an x64 MSIX, got $($manifest.Package.Identity.ProcessorArchitecture)."
+            }
+            foreach ($nativeDll in @('libvlc.dll', 'libvlccore.dll')) {
+              $entry = $zip.GetEntry($nativeDll)
+              if (-not $entry) { throw "Missing from package: $nativeDll" }
+              $stream = $entry.Open()
+              $reader = New-Object IO.BinaryReader($stream)
+              try {
+                $stream.Seek(0x3C, [IO.SeekOrigin]::Begin) | Out-Null
+                $peOffset = $reader.ReadInt32()
+                $stream.Seek($peOffset + 4, [IO.SeekOrigin]::Begin) | Out-Null
+                $machine = $reader.ReadUInt16()
+              } finally { $reader.Dispose() }
+              if ($machine -ne 0x8664) {
+                throw "$nativeDll is not x64 (PE machine 0x$('{0:X4}' -f $machine))."
+              }
+            }
+            $dependencies = $manifest.Package.Dependencies.PackageDependency | ForEach-Object { $_.Name }
           } finally { $zip.Dispose() }
-          $dependencies = $manifest.Package.Dependencies.PackageDependency | ForEach-Object { $_.Name }
           $plugins = @($entries | Where-Object { $_ -like 'plugins/*.dll' }).Count
           $webFiles = @($entries | Where-Object { $_ -like 'web/*' }).Count
           $sizeMb = [math]::Round($msix.Length / 1MB, 1)

@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using LibVLCSharp.Shared;
 using Nuvio.Diagnostics;
+using Windows.ApplicationModel;
 using Windows.Data.Json;
 using Windows.UI.Core;
 
@@ -127,7 +129,20 @@ namespace Nuvio.Playback
             {
                 try
                 {
-                    Log.Write("Starting LibVLC");
+                    if (IntPtr.Size != 8)
+                    {
+                        throw new InvalidOperationException("The Xbox package must run as x64 before loading LibVLC.");
+                    }
+                    var vlcDirectory = Package.Current.InstalledLocation.Path;
+                    var libvlcPath = Path.Combine(vlcDirectory, "libvlc.dll");
+                    var libvlccorePath = Path.Combine(vlcDirectory, "libvlccore.dll");
+                    var pluginsPath = Path.Combine(vlcDirectory, "plugins");
+                    if (!File.Exists(libvlcPath) || !File.Exists(libvlccorePath) || !Directory.Exists(pluginsPath))
+                    {
+                        throw new FileNotFoundException(
+                            "The x64 LibVLC package is incomplete. Expected libvlc.dll, libvlccore.dll, and plugins under " + vlcDirectory);
+                    }
+                    Log.Write("Starting LibVLC from " + vlcDirectory + " (" + (IntPtr.Size * 8) + "-bit process)");
                     Core.Initialize();
 #if DEBUG
                     _libVlc = new LibVLC(true, options.ToArray());
