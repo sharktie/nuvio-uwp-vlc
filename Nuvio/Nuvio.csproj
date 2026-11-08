@@ -17,14 +17,15 @@
     <FileAlignment>512</FileAlignment>
     <ProjectTypeGuids>{A5A43C5B-DE2A-4C0C-9213-0A381AF9435A};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
     <WindowsXamlEnableOverview>true</WindowsXamlEnableOverview>
-    <AppxPackageSigningEnabled>False</AppxPackageSigningEnabled>
+    <AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>
     <GenerateAppInstallerFile>False</GenerateAppInstallerFile>
     <AppxPackageSigningTimestampDigestAlgorithm>SHA256</AppxPackageSigningTimestampDigestAlgorithm>
     <AppxAutoIncrementPackageRevision>True</AppxAutoIncrementPackageRevision>
     <GenerateTestArtifacts>True</GenerateTestArtifacts>
-    <AppxBundle>Never</AppxBundle>
+    <AppxBundle>Always</AppxBundle>
     <AppxBundlePlatforms>x64</AppxBundlePlatforms>
     <HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
+    <PackageCertificateThumbprint>11E70F8256EEC8E0DDBBF461F7228DDB378696E0</PackageCertificateThumbprint>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
     <VlcUWPX64Enabled>true</VlcUWPX64Enabled>
@@ -125,6 +126,9 @@
   <!-- The package's file list (the .appxrecipe) is only rewritten when MSBuild thinks it's out of
        date, which misses web files added since the last full build: the app then ships without
        them and the web app can't start. Rewrite it on every build. -->
+  <ItemGroup>
+    <None Include="Nuvio_TemporaryKey.pfx" />
+  </ItemGroup>
   <Target Name="RefreshPackageFileList" BeforeTargets="BeforeBuild">
     <Delete Files="$(OutDir)$(TargetName).build.appxrecipe" ContinueOnError="true" />
   </Target>

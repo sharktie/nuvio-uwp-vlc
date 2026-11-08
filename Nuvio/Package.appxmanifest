@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 
 <Package
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
@@ -9,8 +9,8 @@
 
   <Identity
     Name="b7f0f2ee-118a-4bad-88af-994615cd4212"
-    Publisher="CN=NuvioUWP"
-    Version="1.3.0.0" />
+    Publisher="CN=Mg18"
+    Version="1.3.2.0" />
 
   <mp:PhoneIdentity PhoneProductId="b7f0f2ee-118a-4bad-88af-994615cd4212" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
