@@ -708,9 +708,14 @@ html[dir="rtl"].sidebar-open .sidebar { background: linear-gradient(270deg, rgba
 
 html[lang="ar"] body { font-family: "Segoe UI", Tahoma, "Noto Sans Arabic", system-ui, sans-serif; }
 
-html[dir="rtl"] .backdrop-shade, html[dir="rtl"] .details-shade {
+html[dir="rtl"] .backdrop-shade {
   background:
     linear-gradient(270deg, var(--bg) 18%, rgba(var(--bg-rgb), .85) 34%, rgba(var(--bg-rgb), .25) 62%, rgba(var(--bg-rgb), .1) 100%),
     linear-gradient(0deg, var(--bg) 22%, rgba(var(--bg-rgb), .7) 45%, rgba(var(--bg-rgb), 0) 75%);
+}
+html[dir="rtl"] .details-shade {
+  background:
+    linear-gradient(270deg, var(--bg) 12%, rgba(var(--bg-rgb), .88) 32%, rgba(var(--bg-rgb), .3) 65%, rgba(var(--bg-rgb), .15) 100%),
+    linear-gradient(0deg, var(--bg) 8%, rgba(var(--bg-rgb), .55) 40%, rgba(var(--bg-rgb), 0) 70%);
 }
 html[dir="rtl"] .row-track, html[dir="rtl"] .poster-grid { direction: rtl; }
