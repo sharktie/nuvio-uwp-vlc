@@ -23,7 +23,16 @@ export function sidebar() {
           'aria-label': item.label,
           onClick: () => {
             document.documentElement.classList.remove('sidebar-open');
-            router.root(item.route);
+            const view = router.root(item.route);
+            requestAnimationFrame(() => {
+              if (!view || !view.el.isConnected) return;
+              document.documentElement.classList.remove('sidebar-open');
+              focus.restore(view.el);
+              if (!view.el.contains(focus.current)) {
+                const primary = firstPrimaryFocus(view.el);
+                if (primary) focus.set(primary);
+              }
+            });
           },
         }, icon(item.icon), h('span', { class: 'sidebar-label' }, item.label));
         buttons.set(item.route, button);
@@ -47,4 +56,10 @@ export function sidebar() {
     if (active) focus.remember(nav, active);
   });
   return nav;
+}
+
+function firstPrimaryFocus(root) {
+  const candidates = [...root.querySelectorAll('.focusable')]
+    .filter((el) => !el.disabled && !el.closest('[hidden], .is-hidden, [inert]') && el.getClientRects().length);
+  return candidates.find((el) => el.hasAttribute('data-autofocus')) || candidates[0] || null;
 }
