@@ -79,7 +79,6 @@ h1, h2, h3, p { margin: 0; }
   transition: opacity .35s;
 }
 #splash img { width: 8rem; height: 8rem; }
-.splash-status { color: var(--text-2); font-size: 1.1rem; text-align: center; max-width: 80vw; }
 #splash.hide { opacity: 0; pointer-events: none; }
 .splash-spinner, .spinner {
   width: 3rem; height: 3rem; border-radius: 50%;
