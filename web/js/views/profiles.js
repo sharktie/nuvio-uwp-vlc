@@ -59,7 +59,7 @@ export async function unlockProfile(profile) {
 }
 
 /** Shows the profile picker. Resolves with the chosen profile's index. */
-export function whoIsWatching() {
+export function whoIsWatching({ cancelable = false } = {}) {
   return new Promise((resolve) => {
     let popScope = null;
     let busy = false;
@@ -69,10 +69,15 @@ export function whoIsWatching() {
       img('assets/wordmark.png', { class: 'profile-wordmark', alt: 'Nuvio', loading: 'eager' }),
       h('h1', null, 'Who\'s watching?'),
       grid,
-      h('p', { class: 'settings-hint' }, 'Turn this off in Settings → Account.'));
+      cancelable && h('button', {
+        class: 'profile-cancel focusable',
+        type: 'button',
+        onClick: () => finish(null),
+      }, 'Cancel'),
+      h('p', { class: 'settings-hint' }, cancelable ? 'Choose a profile for this device.' : 'Turn this off in Settings → Account.'));
 
     const finish = (index) => {
-      rememberProfilePicked();
+      if (index != null) rememberProfilePicked();
       if (popScope) popScope();
       el.classList.remove('show');
       setTimeout(() => el.remove(), 250);
@@ -112,6 +117,10 @@ export function whoIsWatching() {
     popScope = focus.pushScope(el, {
       initial,
       onBack: () => {
+        if (cancelable) {
+          finish(null);
+          return true;
+        }
         // Like Home: a second press leaves the app.
         if (bridge.native) {
           if (Date.now() - exitArmedAt < 2500) bridge.send('app.exit');

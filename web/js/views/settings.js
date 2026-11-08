@@ -8,6 +8,8 @@ import {
   replaceAddons, DEFAULT_ADDON_URLS,
 } from '../services/addons.js';
 import { LANGUAGE_CHOICES } from '../services/subtitles.js';
+import { isSignedIn, cachedProfiles, activeProfileIndex, switchProfile } from '../services/account.js';
+import { profileName, profileAvatar, whoIsWatching } from './profiles.js';
 import { accountPage } from './account.js';
 import { integrationsPage } from './integrations.js';
 import { DEBRID_PROVIDERS, debridAccount, setDebridAccount, validateDebridKey } from '../services/debrid.js';
@@ -45,14 +47,31 @@ export function settingsView({ params }) {
     const el = sectionView(section);
     return { el, chrome: 'sidebar', destroy: () => el.__cleanup && el.__cleanup() };
   }
+  const rows = [];
+  const profiles = cachedProfiles();
+  const activeProfile = profiles.find((profile) => profile.profile_index === activeProfileIndex());
+  if (isSignedIn() && profiles.length > 1 && activeProfile) {
+    rows.push(settingRow({
+      label: 'Switch profile',
+      description: `Currently using ${profileName(activeProfile)}`,
+      control: h('span', { class: 'settings-profile-control' },
+        profileAvatar(activeProfile, 'profile-avatar-small settings-profile-avatar'),
+        icon('chevron-right', 'setting-chevron')),
+      onClick: async () => {
+        const selected = await whoIsWatching({ cancelable: true });
+        if (selected != null && selected !== activeProfileIndex()) switchProfile(selected);
+      },
+    }));
+  }
+  rows.push(...SECTIONS.map((s) => settingRow({
+    label: s.label,
+    description: s.description,
+    icon: s.icon,
+    control: icon('chevron-right', 'setting-chevron'),
+    onClick: () => router.go(`settings/${s.id}`),
+  })));
   return {
-    el: page('Settings', SECTIONS.map((s) => settingRow({
-      label: s.label,
-      description: s.description,
-      icon: s.icon,
-      control: icon('chevron-right', 'setting-chevron'),
-      onClick: () => router.go(`settings/${s.id}`),
-    }))),
+    el: page('Settings', rows),
     chrome: 'sidebar',
   };
 }

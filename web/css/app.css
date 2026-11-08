@@ -477,6 +477,10 @@ html[dir="rtl"] .toggle.on .toggle-knob { transform: translateX(-1.5rem); }
 .profile-picker.show { opacity: 1; }
 .profile-wordmark { height: 3.4rem; width: auto; }
 .profile-picker h1 { font-size: 2.6rem; font-weight: 700; }
+.profile-cancel { padding: .8rem 1.6rem; border-radius: 1.5rem; background: var(--surface-2); font-weight: 600; }
+.profile-cancel.focused { background: #fff; color: #000; }
+.settings-profile-control { display: inline-flex; align-items: center; gap: .7rem; flex: none; }
+.settings-profile-avatar { width: 3rem; height: 3rem; margin: 0; font-size: 1.25rem; }
 .profile-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 2.4rem; max-width: 90vw; padding: 1rem; }
 .profile-tile {
   display: flex; flex-direction: column; align-items: center; gap: .9rem; width: 12rem; padding: 1rem .5rem;
