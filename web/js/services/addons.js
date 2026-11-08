@@ -65,24 +65,16 @@ export async function fetchManifest(transportUrl) {
 /** First run: install the default addons. */
 export async function ensureDefaultAddons() {
   if (load()) return;
-  const discovered = [];
+  addons = [];
   await Promise.all(DEFAULT_ADDON_URLS.map(async (url) => {
     try {
       const manifest = await fetchManifest(url);
-      discovered.push({ transportUrl: url, manifest, enabled: true, refreshedAt: Date.now() });
+      addons.push({ transportUrl: url, manifest, enabled: true, refreshedAt: Date.now() });
     } catch (error) {
       console.warn('Default addon failed to install', url, error);
     }
   }));
-
-  // A signed-in account sync or a user action may have stored addons during discovery.
-  // Preserve that newer data rather than mixing the remote starter list into it.
-  const saved = storage.get(profileKey('addons'), null);
-  if (saved) {
-    addons = saved;
-    return;
-  }
-  addons = discovered.sort((a, b) => DEFAULT_ADDON_URLS.indexOf(a.transportUrl) - DEFAULT_ADDON_URLS.indexOf(b.transportUrl));
+  addons.sort((a, b) => DEFAULT_ADDON_URLS.indexOf(a.transportUrl) - DEFAULT_ADDON_URLS.indexOf(b.transportUrl));
   save();
 }
 
