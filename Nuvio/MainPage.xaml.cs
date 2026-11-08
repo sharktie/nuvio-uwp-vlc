@@ -45,6 +45,7 @@ namespace Nuvio
         private bool _recoveringWebView;
         private int _unresponsiveRendererReports;
         private int _automaticWebViewRecoveries;
+        private static int _automaticBrowserRecoveries;
 
         public MainPage()
         {
@@ -631,8 +632,16 @@ namespace Nuvio
             {
                 return;
             }
+            if (_automaticBrowserRecoveries >= 2)
+            {
+                ShowLoadError("The web view stopped repeatedly. Select Retry to reopen it.", false);
+                return;
+            }
+
             _recoveringWebView = true;
-            Log.Write("Recreating the WebView2 control after browser process exit");
+            _automaticBrowserRecoveries++;
+            Log.Write("Recreating the WebView2 control after browser process exit (attempt " +
+                _automaticBrowserRecoveries + ")");
             try
             {
                 _player.Stop();
