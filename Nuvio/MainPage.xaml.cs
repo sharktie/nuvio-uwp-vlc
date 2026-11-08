@@ -619,6 +619,7 @@ namespace Nuvio
             }
             catch (Exception ex)
             {
+                _recoveringWebView = false;
                 Log.Error("Reloading after renderer failure failed", ex);
                 RecoverBrowserProcess();
             }
